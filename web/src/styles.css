@@ -1728,3 +1728,79 @@ a.btn-icone:hover {
     padding: 20px 16px;
   }
 }
+
+/* --- prévia Block Kit (como o Slack desenha) ---------------------------- */
+
+.bk {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 0;
+  font-size: 14px;
+  line-height: 21px;
+}
+
+.bk-header {
+  font-size: 18px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.bk-context {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--texto-suave);
+}
+
+.bk-divider {
+  border: 0;
+  border-top: 1px solid var(--borda);
+  margin: 4px 0;
+  width: 100%;
+}
+
+.bk-section {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.bk-section-texto {
+  flex: 1;
+  min-width: 0;
+}
+
+.bk-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px 16px;
+}
+
+.bk-botao {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid var(--borda-forte);
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--texto);
+  text-decoration: none;
+  background: var(--superficie);
+}
+
+.bk-botao:hover {
+  background: var(--caixa);
+  color: var(--texto);
+}
+
+.bk-anexo {
+  border-left: 4px solid;
+  border-radius: 4px;
+  padding: 2px 0 2px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}

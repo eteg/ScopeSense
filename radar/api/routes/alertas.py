@@ -5,7 +5,6 @@ Decidir aqui grava no mesmo SQLite que o nó `registrar` e os botões do Slack u
 no canal do projeto, marcando o responsável (radar/relatorio/slack_saida.py).
 """
 
-import re
 from datetime import datetime
 from typing import Annotated, Literal, cast
 from zoneinfo import ZoneInfo
@@ -23,7 +22,7 @@ from radar.api.deps import (
 from radar.core.errors import Conflito, EntradaInvalida, NaoEncontrado, RadarError
 from radar.core.models import Decisao, Origem
 from radar.fontes.slack import SlackFonte
-from radar.relatorio import slack_saida
+from radar.relatorio import estrutura, slack_saida
 
 router = APIRouter(prefix="/alertas", tags=["alertas"])
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -101,26 +100,51 @@ _PAPEL = {
 }
 
 
-def mensagem_slack(a: painel.AlertaTela, marcacao: str, quem: str) -> str:
-    """Texto (mrkdwn) do alerta no canal: quem age, o que foi combinado, onde apareceu."""
-    onde = "Registro " + a.id
+def mensagem_slack(a: painel.AlertaTela, marcacao: str, quem: str) -> dict:
+    """Mensagem Block Kit do alerta: marca quem age, barra colorida pela severidade,
+    título, categoria/cláusula/fonte e o botão "Ver evidência" (só com link real)."""
+    sev = a.gravidade.value
+    papel = _PAPEL.get(a.responsavel.value if a.responsavel else "", "")
+    fonte = "Registro " + a.id
     if a.evidencia:
         origem = a.evidencia.origem.value.replace("email", "e-mail").capitalize()
-        quando = a.evidencia.data.astimezone(FUSO).strftime("%d/%m %H:%M")
-        onde = f"{origem}, {a.evidencia.autor}, {quando}"
-        if a.evidencia.link:
-            onde += f" · <{a.evidencia.link}|abrir>"
-    papel = _PAPEL.get(a.responsavel.value if a.responsavel else "", "")
-    grav = _GRAVIDADE[a.gravidade.value].lower()
-    contrato = re.sub(r"\*\*(.+?)\*\*", r"*\1*", a.trecho_contrato)  # Markdown -> Slack
-    return (
-        f"{marcacao} {_EMOJI[a.gravidade.value]} *Divergência {grav}"
-        f" · {a.categoria}*{f' · {papel}' if papel else ''}\n"
-        f"*{a.titulo}*\n\n"
-        f"*O que o contrato diz* (cláusula {a.clausula}):\n> {contrato}\n\n"
-        f"*Onde apareceu* ({onde}):\n> {a.trecho_evidencia}\n\n"
-        f"_Enviado pelo Radar de Desvios por {quem}. Usem esta thread para discutir._"
-    )
+        fonte = f"{origem}, {a.evidencia.autor}, {a.evidencia.data.astimezone(FUSO):%d/%m}"
+    identificado = a.justificativa.replace("[gabarito]", "").strip()
+    identificado = identificado[:1].upper() + identificado[1:]
+    secao: dict = {
+        "type": "section",
+        "text": {"type": "mrkdwn", "text": f"*{estrutura.EMOJI[sev]} {estrutura.esc(a.titulo)}*"
+                 + ("" if identificado.rstrip(".").startswith(a.titulo) else
+                    f"\n{estrutura.esc(identificado)}")},
+    }  # fmt: skip
+    link = a.evidencia.link if a.evidencia else None
+    if link and link.startswith("https://"):
+        secao["accessory"] = {
+            "type": "button",
+            "text": {"type": "plain_text", "text": "Ver evidência"},
+            "url": link,
+            "action_id": "ver_evidencia",
+        }
+    detalhe = " · ".join([a.categoria, f"cl. {a.clausula}", fonte])
+    return {
+        "text": f"{marcacao} Divergência {_GRAVIDADE[sev].lower()}: {a.titulo}",
+        "blocks": [
+            {"type": "section", "text": {"type": "mrkdwn", "text":
+                f"{marcacao} *Divergência {_GRAVIDADE[sev].lower()}* para você"
+                + (f" ({papel})" if papel else "")}},
+        ],  # fmt: skip
+        "attachments": [
+            {
+                "color": estrutura.COR[sev],
+                "blocks": [
+                    secao,
+                    {"type": "context", "elements": [{"type": "mrkdwn", "text":
+                        f"{estrutura.esc(detalhe)}\n_Enviado pelo Radar de Desvios por "
+                        f"{estrutura.esc(quem)}. Usem a thread para discutir._"}]},
+                ],  # fmt: skip
+            }
+        ],
+    }
 
 
 @router.post("/{alerta_id}/notificar")

@@ -14,7 +14,10 @@ from radar.fontes.slack.texto import limpar_mencoes
 
 # Mensagens de sistema que não são evidência do projeto.
 IGNORED_SUBTYPES = frozenset({"channel_join", "channel_leave", "channel_purpose", "channel_topic"})
-PAGE_SIZE = 200
+# Páginas pequenas: a rede corta respostas grandes no meio (IncompleteRead). Se uma
+# página cair, só ela é refeita.
+PAGE_SIZE = 4  # mensagens e threads: mensagens longas chegam a ~8 KB cada (texto + blocos)
+LIST_PAGE_SIZE = 100  # usuários e canais
 MAX_LIST_PAGES = 50  # até 10 mil canais ao procurar um nome
 CACHE_USUARIOS_S = 30 * 60  # lista de usuários do workspace
 CHANNEL_ID = re.compile(r"^[CG][A-Z0-9]{8,}$")
@@ -136,7 +139,7 @@ class SlackFonte:
         indice: dict[str, set[str]] = {}
         cursor: str | None = None
         for _ in range(MAX_LIST_PAGES):
-            params: dict[str, Any] = {"limit": PAGE_SIZE}
+            params: dict[str, Any] = {"limit": LIST_PAGE_SIZE}
             if cursor:
                 params["cursor"] = cursor
             data = self._client.call("users.list", **params)
@@ -160,7 +163,7 @@ class SlackFonte:
             params: dict[str, Any] = {
                 "types": "public_channel,private_channel",
                 "exclude_archived": True,
-                "limit": PAGE_SIZE,
+                "limit": LIST_PAGE_SIZE,
             }
             if cursor:
                 params["cursor"] = cursor

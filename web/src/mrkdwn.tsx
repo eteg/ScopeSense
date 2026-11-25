@@ -4,6 +4,15 @@ import type { ReactNode } from "react";
 // > citação, <url|texto> e <@ID> (vira @Nome). Sem innerHTML: só nós do React.
 const TOKEN = /(<@[A-Z0-9]+(?:\|[^>]*)?>|<https?:[^>|]+(?:\|[^>]+)?>|\*[^*\n]+\*|_[^_\n]+_|~[^~\n]+~)/g;
 
+// O Slack recebe &, < e > escapados; na tela eles aparecem como caracteres normais.
+const desfazerEntidades = (t: string) =>
+  t
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/:repeat:/g, "🔁")
+    .replace(/:satellite_antenna:/g, "📡");
+
 function inline(texto: string, nomes: Record<string, string>, chave: string): ReactNode[] {
   return texto.split(TOKEN).map((parte, i) => {
     const k = `${chave}-${i}`;
@@ -29,7 +38,7 @@ function inline(texto: string, nomes: Record<string, string>, chave: string): Re
       return <em key={k}>{inline(parte.slice(1, -1), nomes, k)}</em>;
     if (parte.length > 2 && parte.startsWith("~") && parte.endsWith("~"))
       return <s key={k}>{parte.slice(1, -1)}</s>;
-    return parte;
+    return desfazerEntidades(parte);
   });
 }
 

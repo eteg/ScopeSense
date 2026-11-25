@@ -5,6 +5,7 @@ import { api, type Relatorio, type TarefaRelatorio } from "../api/client";
 import type { PedirNome } from "../App";
 import { dolares, PAPEL, reais, tokens } from "../labels";
 import { Mrkdwn } from "../mrkdwn";
+import { BlockKitPrevia } from "./BlockKitPrevia";
 import { ProgressoRelatorio } from "./ProgressoRelatorio";
 
 type Props = { aberto: boolean; onFechar: () => void; nome: string; pedirNome: PedirNome };
@@ -238,7 +239,11 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
                     ? `Mensagem ${i + 1} no canal ${canal} · para ${m.para ?? "(ninguém cadastrado)"} · ${PAPEL[m.papel as keyof typeof PAPEL] ?? m.papel}`
                     : `Mensagem ${i + 1} no canal ${canal} · resumo`}
                 </div>
-                <Mrkdwn texto={m.texto} nomes={nomes} />
+                {relatorio.slack?.[i] ? (
+                  <BlockKitPrevia mensagem={relatorio.slack[i]} nomes={nomes} />
+                ) : (
+                  <Mrkdwn texto={m.texto} nomes={nomes} />
+                )}
               </div>
             ))}
           </div>

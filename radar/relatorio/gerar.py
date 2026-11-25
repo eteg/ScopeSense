@@ -17,6 +17,7 @@ from radar import config, custo
 from radar.core.errors import FalhaNaFonte, FonteNaoConfigurada, RadarError
 from radar.core.models import Consulta, Origem, Papel, Registro
 from radar.llm import _get_client
+from radar.relatorio.estrutura import RelatorioEstruturado
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 PROMPT = Path(__file__).with_name("prompt_sistema.md")
@@ -178,16 +179,12 @@ def montar_prompt(
         total += len(trecho)
         contratos.append(f"### {nome} (tipo: {tipo})\n{trecho or '(sem texto extraível)'}")
 
-    ids = "\n".join(
-        f"- {ROTULO_PAPEL[p.papel]}: {p.nome} → "
-        + (f"<@{p.slack_id}>" if p.slack_id else "não encontrei no Slack")
-        for p in pessoas
-    )
+    ids = "\n".join(f"- {ROTULO_PAPEL[p.papel]}: {p.nome}" for p in pessoas)
     user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" (a pasta do projeto) aqui são os arquivos enviados na tela de Configurações e os PDFs anexados aos e-mails do projeto (o contrato pode estar entre eles; cite o link do e-mail de origem). Use só estes dados; não invente links (use os que vierem nos registros).
 
-Responda SOMENTE com as mensagens do Slack (mrkdwn), sem comentários antes ou depois: primeiro a mensagem de resumo; depois, para cada responsável com algo a fazer, uma linha com o marcador do papel (<<<PARA:gestor>>>, <<<PARA:comercial>>> ou <<<PARA:administrativo_contratos>>>) seguida da mensagem dele, começando pela marcação <@ID>. Uma mensagem por papel. Todas vão para o canal como mensagens separadas, então cada uma precisa se entender sozinha.
+Devolva o relatório nos campos do schema (dados, não texto do Slack): a aplicação monta as mensagens e marca as pessoas. Escreva pouco: título, ação e "por que importa" curtos.
 
-Pessoas cadastradas no setup e o ID do Slack para marcar (use EXATAMENTE estes IDs; não marque mais ninguém):
+Responsáveis cadastrados no setup (para você saber quem é quem; NÃO escreva marcações):
 {ids or "(ninguém cadastrado)"}
 
 {chr(10).join(f"Aviso da coleta: {a}" for a in coleta.avisos)}
@@ -207,8 +204,8 @@ Pessoas cadastradas no setup e o ID do Slack para marcar (use EXATAMENTE estes I
 # --- modelo e saída ----------------------------------------------------------------------
 
 
-def chamar_modelo(system: str, user: str) -> tuple[str, dict]:
-    """(texto do relatório, custo da chamada: tokens, US$ e R$)."""
+def chamar_modelo(system: str, user: str) -> tuple[RelatorioEstruturado, dict]:
+    """(relatório estruturado, custo da chamada: tokens, US$ e R$)."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise FonteNaoConfigurada(
             "Falta ANTHROPIC_API_KEY no .env: o relatório é escrito pelo modelo. "
@@ -217,12 +214,13 @@ def chamar_modelo(system: str, user: str) -> tuple[str, dict]:
     import anthropic
 
     try:
-        resposta = _get_client().messages.create(
+        resposta = _get_client().messages.parse(
             model=config.MODELO_PRINCIPAL,
             max_tokens=MAX_TOKENS,
             output_config={"effort": ESFORCO},
             system=system,
             messages=[{"role": "user", "content": user}],
+            output_format=RelatorioEstruturado,
         )
     except anthropic.APIStatusError as exc:
         detalhe = (exc.body or {}).get("error", {}).get("message") if isinstance(exc.body, dict) else None
@@ -236,12 +234,12 @@ def chamar_modelo(system: str, user: str) -> tuple[str, dict]:
         raise FalhaNaFonte(f"Falha ao falar com o modelo: {exc}") from exc
     if resposta.stop_reason == "refusal":
         raise FalhaNaFonte("O modelo recusou escrever o relatório. Tente outro período.")
-    texto = "".join(b.text for b in resposta.content if getattr(b, "type", "") == "text").strip()
-    if not texto:
+    relatorio = resposta.parsed_output
+    if relatorio is None:
         raise FalhaNaFonte(
-            f"O modelo não devolveu texto (parou por {resposta.stop_reason}). Tente de novo."
+            f"O modelo não devolveu o relatório (parou por {resposta.stop_reason}). Tente de novo."
         )
-    return texto, custo.calcular(config.MODELO_PRINCIPAL, resposta.usage)
+    return relatorio, custo.calcular(config.MODELO_PRINCIPAL, resposta.usage)
 
 
 _MENCAO = re.compile(r"<@([A-Z0-9]+)(?:\|[^>]*)?>")

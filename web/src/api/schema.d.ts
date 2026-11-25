@@ -871,6 +871,14 @@ export interface components {
             /** Slack Link */
             slack_link: string | null;
             custo?: components["schemas"]["Custo"] | null;
+            /** Estrutura */
+            estrutura?: {
+                [key: string]: unknown;
+            } | null;
+            /** Slack */
+            slack?: {
+                [key: string]: unknown;
+            }[] | null;
         };
         /** Resumo */
         Resumo: {

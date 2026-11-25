@@ -27,23 +27,38 @@ def _limitar(texto: str) -> str:
     return texto if len(texto) <= LIMITE else texto[: LIMITE - 1] + "…"
 
 
-def publicar(canal: str, mensagens: list[str]) -> tuple[str, str | None]:
+def publicar(canal: str, mensagens: list[str | dict]) -> tuple[str, str | None]:
     """Posta cada mensagem no canal, como mensagens independentes e nesta ordem:
     o resumo e depois uma por responsável. Nenhuma vai em thread: a thread de cada
     mensagem fica livre para o grupo discutir aquele assunto.
 
-    Devolve (ts do resumo, link para ele).
+    Cada mensagem é um texto (mrkdwn) ou um dict Block Kit com "text" (fallback das
+    notificações), "blocks" e "attachments" (a barra colorida de cada ponto).
+    Devolve (ts da primeira mensagem, link para ela).
     """
     client = _client()
-    blocos = [_limitar(m.strip()) for m in mensagens if m.strip()]
-    if not blocos:
+    pedidos = []
+    for m in mensagens:
+        if isinstance(m, str):
+            if m.strip():
+                pedidos.append({"text": _limitar(m.strip())})
+        else:
+            pedidos.append({
+                "text": _limitar(m.get("text") or "Radar de Desvios"),
+                "blocks": m.get("blocks") or None,
+                "attachments": m.get("attachments") or None,
+            })  # fmt: skip
+    if not pedidos:
         raise FalhaNaFonte("Relatório vazio: nada para publicar.")
     try:
         enviadas = [
             client.chat_postMessage(
-                channel=canal, text=bloco, unfurl_links=False, unfurl_media=False
+                channel=canal,
+                unfurl_links=False,
+                unfurl_media=False,
+                **{k: v for k, v in pedido.items() if v is not None},
             )["ts"]
-            for bloco in blocos
+            for pedido in pedidos
         ]
         link = client.chat_getPermalink(channel=canal, message_ts=enviadas[0]).get("permalink")
     except SlackApiError as exc:

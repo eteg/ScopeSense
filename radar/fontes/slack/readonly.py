@@ -35,8 +35,8 @@ _NOT_FOUND_ERRORS = frozenset({"users_not_found", "user_not_found", "thread_not_
 
 # Rede instável: a resposta às vezes chega cortada (IncompleteRead) ou a conexão cai.
 # Toda leitura tenta de novo antes de desistir. Erro do Slack (permissão etc.) não repete.
-TENTATIVAS = 3
-ESPERA_S = 1.5
+TENTATIVAS = 5
+ESPERA_S = 1.5  # espera 1,5 s, 3 s, 4,5 s, 6 s entre as tentativas
 
 
 class ReadOnlySlackClient:

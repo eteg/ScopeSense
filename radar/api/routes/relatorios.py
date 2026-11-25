@@ -4,9 +4,8 @@ Gerar não publica nada: guarda o texto para a pessoa revisar. Só "Publicar" po
 no Slack (radar/relatorio/slack_saida.py, token de usuário).
 """
 
-from datetime import datetime, timedelta
-import re
 from collections.abc import Callable
+from datetime import datetime, timedelta
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -24,13 +23,14 @@ from radar.api.deps import (
 from radar.core.errors import (
     Conflito,
     EntradaInvalida,
+    FalhaNaFonte,
     FonteNaoConfigurada,
     NaoEncontrado,
     RadarError,
 )
 from radar.core.models import Consulta, Origem
 from radar.fontes.slack import SlackFonte
-from radar.relatorio import gerar, slack_saida, tarefas
+from radar.relatorio import estrutura, gerar, slack_saida, tarefas
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -73,6 +73,35 @@ class Custo(BaseModel):
     cotacao_origem: str
 
 
+def _estruturado(texto: str) -> estrutura.RelatorioEstruturado | None:
+    """Relatórios novos são JSON; os antigos, texto do Slack."""
+    if not texto.lstrip().startswith("{"):
+        return None
+    try:
+        return estrutura.RelatorioEstruturado.model_validate_json(texto)
+    except ValueError:
+        return None
+
+
+def _mensagens_slack(dados: dict) -> list[dict]:
+    """Resumo + uma por responsável, em Block Kit (só relatórios estruturados)."""
+    fontes = dados["fontes"]
+    est = _estruturado(dados["texto"])
+    c = fontes.get("contagem", {})
+    lidos = [f"{c.get('mensagens_slack', 0)} mensagens do Slack", f"{c.get('emails', 0)} e-mails"]
+    if c.get("anexos_gmail") or c.get("arquivos"):
+        lidos.insert(0, "o contrato")
+    desde = datetime.fromisoformat(dados["desde"]).strftime("%d/%m")
+    ate = datetime.fromisoformat(dados["ate"]).strftime("%d/%m")
+    return estrutura.mensagens(
+        est,
+        projeto=fontes.get("projeto") or "Projeto",
+        periodo=f"{desde} a {ate}",
+        fontes="li " + ", ".join(lidos[:-1]) + " e " + lidos[-1],
+        pessoas={p["papel"]: (p["nome"], p["slack_id"]) for p in fontes.get("pessoas", [])},
+    )
+
+
 class Relatorio(BaseModel):
     id: int
     criado_em: str
@@ -88,6 +117,8 @@ class Relatorio(BaseModel):
     publicado_por: str | None
     slack_link: str | None
     custo: Custo | None = None  # relatórios gerados antes do cálculo não têm
+    estrutura: dict | None = None  # relatório em dados (novo)
+    slack: list[dict] | None = None  # as mensagens Block Kit exatas: a tela desenha a prévia
 
 
 def _caminho() -> str:
@@ -103,6 +134,18 @@ def _montar(dados: dict) -> Relatorio:
         desde=dados["desde"],
         ate=dados["ate"],
         mensagens=[
+            Mensagem(
+                papel=m["papel"],
+                para=next(
+                    (p["nome"] for p in fontes.get("pessoas", []) if p["papel"] == m["papel"]),
+                    None,
+                ),
+                texto=m["text"],
+            )
+            for m in _mensagens_slack(dados)
+        ]
+        if _estruturado(dados["texto"])
+        else [
             Mensagem(
                 papel=m.papel.value if m.papel else None,
                 para=next(
@@ -122,6 +165,8 @@ def _montar(dados: dict) -> Relatorio:
         publicado_por=dados["publicado_por"],
         slack_link=dados["slack_link"],
         custo=fontes.get("custo"),
+        estrutura=(e.model_dump() if (e := _estruturado(dados["texto"])) else None),
+        slack=_mensagens_slack(dados) if _estruturado(dados["texto"]) else None,
     )
 
 
@@ -178,8 +223,12 @@ def executar(
         etapa("slack", "ok", f"{_plural(n['mensagens_slack'], 'mensagem', 'mensagens')} em "
               f"{_plural(n['threads_slack'], 'conversa', 'conversas')} de #{canal_nome}")  # fmt: skip
     except RadarError as exc:
-        coleta.avisos.append(f"Slack não foi lido: {exc}")
-        etapa("slack", "erro", str(exc))
+        # Sem o Slack, o relatório sairia incompleto (e o modelo seria pago à toa): para aqui.
+        etapa("slack", "erro", "A conexão com o Slack caiu várias vezes seguidas")
+        raise FalhaNaFonte(
+            "Não consegui ler o Slack: a conexão caiu no meio das respostas, mesmo depois de "
+            f"várias tentativas. Tente gerar de novo em instantes. ({exc})"
+        ) from exc
 
     # 2. Gmail
     etapa("gmail", "andamento", "Lendo os e-mails do projeto")
@@ -247,11 +296,10 @@ def executar(
         coleta=coleta,
     )
     etapa("analise", "andamento", "Cruzando o contrato com as conversas e escrevendo o relatório")
-    bruto, gasto = gerar.chamar_modelo(system, user)
-    texto = gerar.limpar_saida(bruto, pessoas)
-    resumo = gerar.separar(texto)[0].texto if texto else ""
-    contagem = {cor: re.search(rf"{cor}\s*(\d+)", resumo) for cor in ("🔴", "🟠", "🟡")}
-    pontos = [f"{cor} {m.group(1)}" for cor, m in contagem.items() if m]
+    estruturado, gasto = gerar.chamar_modelo(system, user)
+    texto = estruturado.model_dump_json()
+    n = estrutura.contagem(estruturado)
+    pontos = [f"{estrutura.EMOJI[s]} {n[s]}" for s in ("critico", "medio", "baixo") if n[s]]
     preco = f" · custou {_reais(gasto['brl'])}" if gasto.get("brl") is not None else ""
     etapa("analise", "ok", "Relatório pronto" + (f": {' · '.join(pontos)}" if pontos else "") + preco)
 
@@ -259,6 +307,7 @@ def executar(
         "contagem": coleta.contagem(),
         "avisos": coleta.avisos,
         "canal_nome": canal_nome,
+        "projeto": projeto,
         "custo": gasto,
         "pessoas": [
             {"nome": p.nome, "papel": p.papel.value, "slack_id": p.slack_id} for p in pessoas
@@ -373,7 +422,10 @@ def publicar(relatorio_id: int, pedido: PublicarPedido) -> Relatorio:
         raise Conflito(f"Relatório {relatorio_id} já foi publicado por {dados['publicado_por']}.")
     if not dados["canal"]:
         raise EntradaInvalida("Relatório sem canal do Slack.")
-    partes = gerar.separar(dados["texto"])
-    ts, link = slack_saida.publicar(dados["canal"], [m.texto for m in partes])
+    if _estruturado(dados["texto"]):
+        mensagens = _mensagens_slack(dados)  # Block Kit: barra de cor e "Ver evidência"
+    else:
+        mensagens = [m.texto for m in gerar.separar(dados["texto"])]
+    ts, link = slack_saida.publicar(dados["canal"], mensagens)
     db.marcar_relatorio_publicado(relatorio_id, pedido.quem, ts, link, caminho=caminho)
     return _montar(db.obter_relatorio(relatorio_id, caminho=caminho))
