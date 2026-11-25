@@ -19,5 +19,7 @@ def analisar(registro: Registro, contexto: Sequence[Registro] = ()) -> Alerta | 
     if not deve_seguir(alerta):
         return None
     alerta = conferir(alerta, registro)
+    if alerta is None:  # documentos em dia: nada a avisar
+        return None
     alerta, acao = rotear_alerta(alerta)
     return None if acao == Acao.descartar else alerta
