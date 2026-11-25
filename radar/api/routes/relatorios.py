@@ -42,12 +42,18 @@ class PessoaMarcada(BaseModel):
     slack_id: str | None
 
 
+class Mensagem(BaseModel):
+    papel: str | None  # None = mensagem principal (vai para o canal)
+    para: str | None  # nome da pessoa do papel, se cadastrada
+    texto: str
+
+
 class Relatorio(BaseModel):
     id: int
     criado_em: str
     desde: str
     ate: str
-    mensagens: list[str]  # a principal e as respostas da thread
+    mensagens: list[Mensagem]  # a principal e uma resposta na thread por responsável
     canal_id: str | None
     canal_nome: str | None
     fontes: dict
@@ -70,7 +76,17 @@ def _montar(dados: dict) -> Relatorio:
         criado_em=dados["criado_em"],
         desde=dados["desde"],
         ate=dados["ate"],
-        mensagens=gerar.separar(dados["texto"]),
+        mensagens=[
+            Mensagem(
+                papel=m.papel.value if m.papel else None,
+                para=next(
+                    (p["nome"] for p in fontes.get("pessoas", []) if m.papel and p["papel"] == m.papel.value),
+                    None,
+                ),
+                texto=m.texto,
+            )
+            for m in gerar.separar(dados["texto"])
+        ],
         canal_id=dados["canal"],
         canal_nome=fontes.get("canal_nome"),
         fontes=fontes.get("contagem", {}),
@@ -163,6 +179,7 @@ def publicar(relatorio_id: int, pedido: PublicarPedido) -> Relatorio:
         raise Conflito(f"Relatório {relatorio_id} já foi publicado por {dados['publicado_por']}.")
     if not dados["canal"]:
         raise EntradaInvalida("Relatório sem canal do Slack.")
-    ts, link = slack_saida.publicar(dados["canal"], gerar.separar(dados["texto"]))
+    partes = gerar.separar(dados["texto"])
+    ts, link = slack_saida.publicar(dados["canal"], [m.texto for m in partes])
     db.marcar_relatorio_publicado(relatorio_id, pedido.quem, ts, link, caminho=caminho)
     return _montar(db.obter_relatorio(relatorio_id, caminho=caminho))

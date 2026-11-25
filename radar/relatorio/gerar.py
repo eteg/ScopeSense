@@ -20,7 +20,8 @@ from radar.llm import _get_client
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 PROMPT = Path(__file__).with_name("prompt_sistema.md")
-SEPARADOR = "<<<RESPOSTA>>>"
+SEPARADOR_ANTIGO = "<<<RESPOSTA>>>"  # relatórios gerados antes do formato por pessoa
+MARCADOR = re.compile(r"^[ \t]*<<<PARA:([a-z_]+)>>>[ \t]*$", re.M)
 MAX_TEXTO_REGISTRO = 2000
 MAX_TEXTO_CONTRATO = 120_000
 MAX_TOKENS = 16000  # o modelo pensa antes de escrever: precisa de folga
@@ -184,7 +185,7 @@ def montar_prompt(
     )
     user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" (a pasta do projeto) aqui são os arquivos enviados na tela de Configurações e os PDFs anexados aos e-mails do projeto (o contrato pode estar entre eles; cite o link do e-mail de origem). Use só estes dados; não invente links (use os que vierem nos registros).
 
-Responda SOMENTE com o texto da mensagem do Slack (mrkdwn), sem comentários antes ou depois. Se o relatório passar de 3.500 caracteres, separe cada mensagem (a principal e cada resposta da thread) com uma linha contendo apenas {SEPARADOR}.
+Responda SOMENTE com as mensagens do Slack (mrkdwn), sem comentários antes ou depois: primeiro a mensagem principal; depois, para cada responsável com algo a fazer, uma linha com o marcador do papel (<<<PARA:gestor>>>, <<<PARA:comercial>>> ou <<<PARA:administrativo_contratos>>>) seguida da mensagem dele, começando pela marcação <@ID>. Uma mensagem por papel.
 
 Pessoas cadastradas no setup e o ID do Slack para marcar (use EXATAMENTE estes IDs; não marque mais ninguém):
 {ids or "(ninguém cadastrado)"}
@@ -246,12 +247,47 @@ _MENCAO = re.compile(r"<@([A-Z0-9]+)(?:\|[^>]*)?>")
 _AVISO_GERAL = re.compile(r"<!(channel|here|everyone)>")
 
 
+@dataclass
+class Parte:
+    papel: Papel | None  # None = mensagem principal
+    texto: str
+
+
+def separar(texto: str) -> list[Parte]:
+    """Principal + uma parte por papel (blocos repetidos do mesmo papel são juntados)."""
+    if SEPARADOR_ANTIGO in texto and not MARCADOR.search(texto):
+        blocos = [b.strip() for b in texto.split(SEPARADOR_ANTIGO) if b.strip()]
+        return [Parte(None, b) for b in blocos]
+    pedacos = MARCADOR.split(texto)  # [principal, papel1, texto1, papel2, texto2, ...]
+    partes = [Parte(None, pedacos[0].strip())] if pedacos[0].strip() else []
+    por_papel: dict[Papel, str] = {}
+    for nome, bloco in zip(pedacos[1::2], pedacos[2::2], strict=False):
+        if nome not in Papel.__members__ or not bloco.strip():
+            continue
+        papel = Papel(nome)
+        por_papel[papel] = f"{por_papel[papel]}\n\n{bloco.strip()}" if papel in por_papel else bloco.strip()
+    ordem = [Papel.gestor, Papel.comercial, Papel.administrativo_contratos]
+    return partes + [Parte(p, por_papel[p]) for p in ordem if p in por_papel]
+
+
+def juntar(partes: list[Parte]) -> str:
+    return "\n\n".join(
+        p.texto if p.papel is None else f"<<<PARA:{p.papel.value}>>>\n{p.texto}" for p in partes
+    )
+
+
 def limpar_saida(texto: str, pessoas: list[Pessoa]) -> str:
-    """Só marca quem está no setup. Tira @channel/@here (o relatório não deve avisar todos)."""
+    """Só marca quem está no setup, tira @channel/@here e garante que cada mensagem
+    de responsável comece marcando a pessoa do papel."""
     permitidos = {p.slack_id for p in pessoas if p.slack_id}
     texto = _MENCAO.sub(lambda m: m.group(0) if m.group(1) in permitidos else "@pessoa", texto)
-    return _AVISO_GERAL.sub(lambda m: f"@{m.group(1)}", texto).strip()
-
-
-def separar(texto: str) -> list[str]:
-    return [parte.strip() for parte in texto.split(SEPARADOR) if parte.strip()]
+    texto = _AVISO_GERAL.sub(lambda m: f"@{m.group(1)}", texto).strip()
+    partes = separar(texto)
+    for parte in partes:
+        if parte.papel is None:
+            continue
+        do_papel = [p for p in pessoas if p.papel == parte.papel]
+        marcas = [f"<@{p.slack_id}>" for p in do_papel if p.slack_id]
+        if marcas and not any(parte.texto.startswith(m) for m in marcas):
+            parte.texto = f"{' '.join(marcas)} {parte.texto}"
+    return juntar(partes)

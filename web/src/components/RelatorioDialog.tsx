@@ -140,8 +140,12 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
           <div className="rel-previa" aria-label="Prévia do relatório">
             {relatorio.mensagens.map((m, i) => (
               <div key={i} className="rel-mensagem">
-                {i > 0 && <div className="rel-thread">Resposta na thread</div>}
-                <Mrkdwn texto={m} nomes={nomes} />
+                <div className="rel-thread">
+                  {m.papel
+                    ? `Resposta na thread · para ${m.para ?? "(ninguém cadastrado)"} · ${PAPEL[m.papel as keyof typeof PAPEL] ?? m.papel}`
+                    : `Mensagem principal no canal ${canal}`}
+                </div>
+                <Mrkdwn texto={m.texto} nomes={nomes} />
               </div>
             ))}
           </div>

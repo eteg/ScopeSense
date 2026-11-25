@@ -12,7 +12,7 @@ from slack_sdk.errors import SlackApiError
 
 from radar.core.errors import FalhaNaFonte, FonteNaoConfigurada
 
-LIMITE = 3900  # o Slack corta texto longo; o prompt já pede até 3.500 por mensagem
+LIMITE = 39_000  # teto do Slack; o prompt pede mensagens bem menores
 
 
 def _client() -> WebClient:
@@ -22,31 +22,19 @@ def _client() -> WebClient:
     return WebClient(token=token)
 
 
-def _cortar(texto: str) -> list[str]:
-    """Garante que nenhuma mensagem passe do limite (quebra em parágrafos)."""
-    if len(texto) <= LIMITE:
-        return [texto]
-    partes, atual = [], ""
-    for paragrafo in texto.split("\n\n"):
-        if atual and len(atual) + len(paragrafo) + 2 > LIMITE:
-            partes.append(atual)
-            atual = ""
-        atual = f"{atual}\n\n{paragrafo}" if atual else paragrafo
-        while len(atual) > LIMITE:
-            partes.append(atual[:LIMITE])
-            atual = atual[LIMITE:]
-    if atual:
-        partes.append(atual)
-    return partes
+def _limitar(texto: str) -> str:
+    """O Slack aceita até 40 mil caracteres; acima disso corta, sem virar outra mensagem."""
+    return texto if len(texto) <= LIMITE else texto[: LIMITE - 1] + "…"
 
 
 def publicar(canal: str, mensagens: list[str]) -> tuple[str, str | None]:
-    """Posta a primeira mensagem no canal e as demais na thread dela.
+    """Posta a primeira mensagem no canal e cada uma das demais como UMA resposta na
+    thread dela (uma por responsável; nada é quebrado em várias respostas).
 
     Devolve (ts da mensagem principal, link para ela).
     """
     client = _client()
-    blocos = [p for m in mensagens for p in _cortar(m.strip()) if p.strip()]
+    blocos = [_limitar(m.strip()) for m in mensagens if m.strip()]
     if not blocos:
         raise FalhaNaFonte("Relatório vazio: nada para publicar.")
     try:

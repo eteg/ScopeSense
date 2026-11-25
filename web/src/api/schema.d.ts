@@ -644,6 +644,15 @@ export interface components {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
         };
+        /** Mensagem */
+        Mensagem: {
+            /** Papel */
+            papel: string | null;
+            /** Para */
+            para: string | null;
+            /** Texto */
+            texto: string;
+        };
         /**
          * Origem
          * @enum {string}
@@ -733,7 +742,7 @@ export interface components {
             /** Ate */
             ate: string;
             /** Mensagens */
-            mensagens: string[];
+            mensagens: components["schemas"]["Mensagem"][];
             /** Canal Id */
             canal_id: string | null;
             /** Canal Nome */
