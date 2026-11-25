@@ -45,7 +45,10 @@
     "tipo": "escopo_extra",
     "responsavel": "gestor",
     "clausula": "2.2",
-    "nota": "DESVIO 1: o cliente pede o módulo de relatórios e a equipe aceita; a cláusula 2.2 exclui relatórios e a 5 exige aditivo assinado"
+    "nota": "DESVIO 1: o cliente pede o módulo de relatórios e a equipe aceita; a cláusula 2.2 exclui relatórios e a 5 exige aditivo assinado",
+    "clausulas_aceitas": [
+      "2.2"
+    ]
   },
   {
     "registro_id": "slack:f2b21afccfb2",
@@ -73,6 +76,138 @@
   },
   {
     "registro_id": "slack:41726026ccf4",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:fe7ce07ed437",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:9fe2c4ce83b0",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:be4dc74c58b9",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:ca0f6a3a7129",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:03fb36965414",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:a7a5eb580a89",
+    "e_desvio": true,
+    "tipo": "promessa_fora_do_contrato",
+    "responsavel": "administrativo_contratos",
+    "clausula": "7",
+    "nota": "DESVIO 4: o comercial promete treinamento presencial sem custo; a cláusula 7 limita a uma sessão remota de 2 horas e a 2.2 deixa o treinamento presencial fora do escopo",
+    "clausulas_aceitas": [
+      "7",
+      "2.2"
+    ]
+  },
+  {
+    "registro_id": "reuniao:bcce9cb94285",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:21b97ecbcd39",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:cb9df16260c0",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:e8065a860f39",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:1c58bb3e0d7b",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:bce15173c403",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:d7ba1f993202",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:c4bcdbef2b53",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:793a9fd37486",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "reuniao:dfbc78d687d3",
     "e_desvio": false,
     "tipo": "nenhum",
     "responsavel": null,
@@ -124,8 +259,11 @@
     "e_desvio": true,
     "tipo": "prazo_sla",
     "responsavel": "comercial",
-    "clausula": "3.1",
-    "nota": "DESVIO 2: integração com o CRM (M3, 29/01) só em 12/02, 14 dias depois; aviso informal não altera o marco (3.2)"
+    "clausula": "3",
+    "nota": "DESVIO 2: integração com o CRM (M3, 29/01) só em 12/02, 14 dias depois; aviso informal não altera o marco (cláusula 3)",
+    "clausulas_aceitas": [
+      "3"
+    ]
   },
   {
     "registro_id": "slack:ab1a884f7fae",
@@ -152,12 +290,56 @@
     "nota": ""
   },
   {
+    "registro_id": "documento:f778682f768e238d0489d72c9eeb34a22d6616ec",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+  },
+  {
+    "registro_id": "documento:0d8da57171e0fdc6eb86599653e1392d8aa7a0cf",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+  },
+  {
+    "registro_id": "documento:fb69aeaca47b9ffbea877c2fcd58c292429b52fd",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+  },
+  {
+    "registro_id": "documento:7e800a4afd79b9cf7609b058de9d0eebc3effefe",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+  },
+  {
+    "registro_id": "documento:81a6c41ab0428bd232d45b2d108765f122151cd0",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+  },
+  {
     "registro_id": "slack:86dd5a681f27",
     "e_desvio": true,
     "tipo": "terceiro_sem_documento",
     "responsavel": "administrativo_contratos",
     "clausula": "6.1",
-    "nota": "DESVIO 3: ASO do João venceu em 10/11/2026 e falta a guia de FGTS de 01/2027 (6.1 e 6.4)"
+    "nota": "DESVIO 3: ASO do João venceu em 10/11/2026 e falta a guia de FGTS de 01/2027 (6.1 e 6.4)",
+    "clausulas_aceitas": [
+      "6.1",
+      "6.4"
+    ]
   },
   {
     "registro_id": "slack:b05c4ce95cf2",

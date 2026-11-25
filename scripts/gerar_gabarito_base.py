@@ -43,9 +43,9 @@ ROTULOS_SLACK: list[tuple[str, str, str | None, str]] = [
     (
         "só fica pronta em 12/02",
         "prazo_sla",
-        "3.1",
+        "3",
         "DESVIO 2: integração com o CRM (M3, 29/01) só em 12/02, 14 dias depois; aviso informal "
-        "não altera o marco (3.2)",
+        "não altera o marco (cláusula 3)",
     ),
     (
         "o João da Nimbus começa amanhã no cliente",
@@ -111,6 +111,33 @@ ROTULOS_SLACK: list[tuple[str, str, str | None, str]] = [
 ]
 
 
+# DESVIO 4 (reunião de 21/01/2027): a promessa contradiz a 7 (uma única sessão remota) e a 2.2
+# (treinamento presencial está fora do escopo). `clausula` é a principal.
+ROTULOS_REUNIAO: list[tuple[str, str, str | None, str]] = [
+    (
+        "a gente inclui um treinamento presencial",
+        "promessa_fora_do_contrato",
+        "7",
+        "DESVIO 4: o comercial promete treinamento presencial sem custo; a cláusula 7 limita a "
+        "uma sessão remota de 2 horas e a 2.2 deixa o treinamento presencial fora do escopo",
+    ),
+]
+
+# Cláusulas que o eval aceita como citação correta de cada tipo de desvio (os números são os
+# dos títulos `### N` do contrato, os mesmos que o índice e o classificador usam).
+CLAUSULAS_ACEITAS: dict[str, list[str]] = {
+    "escopo_extra": ["2.2"],
+    "prazo_sla": ["3"],
+    "terceiro_sem_documento": ["6.1", "6.4"],
+    "promessa_fora_do_contrato": ["7", "2.2"],
+}
+
+NOTA_DOCUMENTO = (
+    "Documento do terceiro: evidência da conferência (R-07). Não é mensagem e não gera alerta "
+    "sozinho; o desvio 3 nasce da mensagem sobre o João e é provado por este documento."
+)
+
+
 def linha_base(registro_id: str) -> dict[str, Any]:
     return {
         "registro_id": registro_id,
@@ -138,20 +165,22 @@ def _roteamento(pasta: Path) -> dict[str, str]:
     return ROTEAMENTO_PADRAO
 
 
-def rotular_slack(
+def _aplicar_rotulos(
     linhas: list[dict[str, Any]],
     registros: list[Registro],
-    roteamento: dict[str, str] | None = None,
+    origem: Origem,
+    rotulos: list[tuple[str, str, str | None, str]],
+    roteamento: dict[str, str] | None,
 ) -> list[dict[str, Any]]:
-    """Preenche os rótulos das mensagens do Slack. Cada trecho deve casar com 1 mensagem."""
+    """Cada trecho deve casar com exatamente 1 registro da origem."""
     roteamento = roteamento or ROTEAMENTO_PADRAO
-    slack = [r for r in registros if r.origem == Origem.slack]
+    daquela_origem = [r for r in registros if r.origem == origem]
     por_id = {linha["registro_id"]: linha for linha in linhas}
-    for trecho, tipo, clausula, nota in ROTULOS_SLACK:
-        achados = [r for r in slack if trecho in r.texto]
+    for trecho, tipo, clausula, nota in rotulos:
+        achados = [r for r in daquela_origem if trecho in r.texto]
         if len(achados) != 1:
             raise SystemExit(
-                f"Rótulo '{trecho}': esperava 1 mensagem do Slack, achei {len(achados)}."
+                f"Rótulo '{trecho}': esperava 1 registro de {origem.value}, achei {len(achados)}."
             )
         linha = por_id[achados[0].id]
         linha["e_desvio"] = tipo != "nenhum"
@@ -159,6 +188,37 @@ def rotular_slack(
         linha["responsavel"] = roteamento[tipo] if tipo != "nenhum" else None
         linha["clausula"] = clausula
         linha["nota"] = nota
+        if tipo != "nenhum":
+            linha["clausulas_aceitas"] = CLAUSULAS_ACEITAS[tipo]
+    return linhas
+
+
+def rotular_slack(
+    linhas: list[dict[str, Any]],
+    registros: list[Registro],
+    roteamento: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Preenche os rótulos das mensagens do Slack (desvios 1, 2 e 3 e as 5 iscas)."""
+    return _aplicar_rotulos(linhas, registros, Origem.slack, ROTULOS_SLACK, roteamento)
+
+
+def rotular_reuniao(
+    linhas: list[dict[str, Any]],
+    registros: list[Registro],
+    roteamento: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    """Rotula a promessa da reunião (desvio 4)."""
+    return _aplicar_rotulos(linhas, registros, Origem.reuniao, ROTULOS_REUNIAO, roteamento)
+
+
+def rotular_documentos(
+    linhas: list[dict[str, Any]], registros: list[Registro]
+) -> list[dict[str, Any]]:
+    """Documentos do terceiro são evidência da conferência: ficam `false`, com a explicação."""
+    por_id = {linha["registro_id"]: linha for linha in linhas}
+    for r in registros:
+        if r.origem == Origem.documento:
+            por_id[r.id]["nota"] = NOTA_DOCUMENTO
     return linhas
 
 
@@ -167,14 +227,22 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--pasta", default=str(RAIZ / "data"), help="pasta de dados (FileSource)")
     ap.add_argument("--saida", default=None, help="padrão: <pasta>/gabarito.json")
     ap.add_argument("--rotular-slack", action="store_true", help="rotula desvios e iscas do Slack")
+    ap.add_argument(
+        "--rotular-tudo",
+        action="store_true",
+        help="rotula Slack, reunião (desvio 4) e documentos: o gabarito completo",
+    )
     args = ap.parse_args(argv)
 
     pasta = Path(args.pasta)
     saida = Path(args.saida) if args.saida else pasta / "gabarito.json"
     registros = carregar_registros(pasta)
     linhas = gerar_base(registros)
-    if args.rotular_slack:
+    if args.rotular_slack or args.rotular_tudo:
         linhas = rotular_slack(linhas, registros, _roteamento(pasta))
+    if args.rotular_tudo:
+        linhas = rotular_reuniao(linhas, registros, _roteamento(pasta))
+        linhas = rotular_documentos(linhas, registros)
 
     saida.parent.mkdir(parents=True, exist_ok=True)
     saida.write_text(json.dumps(linhas, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

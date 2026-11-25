@@ -251,3 +251,34 @@ def test_gabarito_rotulado_do_slack(script, tmp_path: Path):
     assert len(iscas) == 5
     assert all(not linha["e_desvio"] and linha["tipo"] == "nenhum" for linha in iscas)
     assert len(linhas) == len(registros)
+
+
+def test_gabarito_completo_tem_os_4_desvios_e_as_clausulas_do_indice(script, tmp_path: Path):
+    saida = tmp_path / "gab.json"
+    script.main(["--pasta", str(DATA), "--saida", str(saida), "--rotular-tudo"])
+    linhas = json.loads(saida.read_text(encoding="utf-8"))
+    registros = {r.id: r for r in FileSource(DATA).fetch()}
+    assert len(linhas) == len(registros)
+    desvios = [linha for linha in linhas if linha["e_desvio"]]
+    assert len(desvios) == 4
+    por_tipo = {linha["tipo"]: linha for linha in desvios}
+    assert set(por_tipo) == {
+        "escopo_extra",
+        "prazo_sla",
+        "terceiro_sem_documento",
+        "promessa_fora_do_contrato",
+    }
+    # O desvio 4 vem da reunião e vai para o administrativo de contratos.
+    promessa = por_tipo["promessa_fora_do_contrato"]
+    assert registros[promessa["registro_id"]].origem.value == "reuniao"
+    assert "treinamento presencial" in registros[promessa["registro_id"]].texto
+    assert promessa["responsavel"] == "administrativo_contratos"
+    # As cláusulas usam o número do título (`### N`), o mesmo do índice: nunca "3.1".
+    assert por_tipo["prazo_sla"]["clausula"] == "3"
+    for linha in desvios:
+        assert linha["clausula"] in linha["clausulas_aceitas"]
+    # Documentos são evidência: não são desvio e explicam o porquê.
+    docs = [
+        linha for linha in linhas if registros[linha["registro_id"]].origem.value == "documento"
+    ]
+    assert docs and all(not d["e_desvio"] and d["nota"] for d in docs)
