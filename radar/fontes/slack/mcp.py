@@ -16,6 +16,11 @@ from radar.mcp.policy import ReadOnlyPolicy, tool_words
 SLACK_POLICY = ReadOnlyPolicy(
     read_verbs=("read", "list"),
     blocked_terms={"search": "busca no workspace inteiro (fora do escopo do projeto)"},
+    # Ferramentas de leitura que não recebem canal: alcançariam dados de fora do projeto.
+    blocked_tools={
+        "slack_read_file": "lê arquivo pelo ID, sem garantia de ser de um canal do projeto",
+        "slack_list_user_channels": "lista todos os canais do usuário, não só os do projeto",
+    },
 )
 CHANNEL_ID = re.compile(r"^[CG][A-Z0-9]{8,}$")
 

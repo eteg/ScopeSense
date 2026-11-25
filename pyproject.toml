@@ -15,6 +15,9 @@ dependencies = [
     "slack-sdk>=3.33",
     "mcp>=1.9",
     "httpx>=0.27",
+    "google-auth>=2.30",
+    "google-auth-oauthlib>=1.2",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

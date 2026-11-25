@@ -47,7 +47,7 @@ def test_adaptadores_cumprem_o_contrato(make_slack) -> None:
     slack, _ = make_slack()
     assert isinstance(slack, Fonte)
     assert isinstance(FonteFalsa(), Fonte)
-    assert set(FACTORIES) == {Origem.slack}
+    assert set(FACTORIES) == {Origem.slack, Origem.email}
 
 
 def test_registro_informa_fontes_configuradas_e_pendentes() -> None:

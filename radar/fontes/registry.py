@@ -13,10 +13,11 @@ from typing import Any
 from radar.core.errors import FonteNaoConfigurada
 from radar.core.models import Origem
 from radar.core.ports import Fonte
-from radar.fontes import slack
+from radar.fontes import gmail, slack
 
 FACTORIES: dict[Origem, Callable[[], Fonte]] = {
     Origem.slack: slack.create,
+    Origem.email: gmail.create,
 }
 
 
