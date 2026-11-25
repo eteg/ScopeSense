@@ -228,3 +228,66 @@ def buscar(
         if len(resultado) == k:
             break
     return resultado
+
+
+# --- Regra em código: mensagens sobre terceiros -----------------------------------------
+# O RAG sozinho não liga "o João da Nimbus começa amanhã no cliente" à cláusula 6 (a mensagem
+# é curta e não usa o vocabulário de documentos: medido com o e5 real, a 6.x ficava em 5º e 6º
+# lugar). Regra: se o texto cita um terceiro conhecido, a consulta ganha o vocabulário da
+# cláusula 6. Aplicada só nesse caso: em qualquer outra mensagem ela atrapalharia a busca.
+
+PROJETO_PADRAO = Path(__file__).resolve().parent.parent / "data" / "projeto_alfa.json"
+TERCEIROS_PADRAO = ("Nimbus Serviços", "João Teixeira", "Carla Mota")
+EXPANSAO_TERCEIRO = (
+    " Documentos do subcontratado exigidos antes de iniciar a atuação: "
+    "ASO, NDA, treinamento de segurança, FGTS e certidão negativa."
+)
+
+
+def carregar_terceiros(caminho: str | Path | None = None) -> tuple[str, ...]:
+    """Nomes do terceiro (empresa e pessoas) em `data/projeto_alfa.json`; padrão se faltar."""
+    import json
+
+    arquivo = Path(caminho) if caminho else PROJETO_PADRAO
+    try:
+        terceiro = json.loads(arquivo.read_text(encoding="utf-8")).get("terceiro", {})
+        pessoas = [p.get("nome", "") for p in terceiro.get("pessoas", [])]
+        nomes = [terceiro.get("empresa", ""), *pessoas]
+    except (OSError, ValueError, AttributeError):
+        return TERCEIROS_PADRAO
+    nomes = [n for n in nomes if n]
+    return tuple(nomes) if nomes else TERCEIROS_PADRAO
+
+
+def _sem_acento(texto: str) -> str:
+    import unicodedata
+
+    decomposto = unicodedata.normalize("NFD", texto.lower())
+    return "".join(c for c in decomposto if unicodedata.category(c) != "Mn")
+
+
+def menciona_terceiro(texto: str, terceiros: tuple[str, ...] | None = None) -> bool:
+    """O texto cita o terceiro? Compara sem acento, sem caixa, por palavra inteira.
+
+    Vale o nome completo ou a primeira palavra do nome ("João", "Carla", "Nimbus").
+    """
+    alvo = _sem_acento(texto)
+    for nome in terceiros if terceiros is not None else carregar_terceiros():
+        limpo = _sem_acento(nome).strip()
+        candidatos = {limpo, limpo.split()[0]} if limpo else set()
+        if any(len(c) >= 3 and re.search(rf"\b{re.escape(c)}\b", alvo) for c in candidatos):
+            return True
+    return False
+
+
+def buscar_clausulas(
+    texto: str,
+    k: int = config.K_CLAUSULAS,
+    *,
+    caminho: str | Path = CAMINHO_CHROMA,
+    embedding_function: Any = None,
+    terceiros: tuple[str, ...] | None = None,
+) -> list[dict]:
+    """`buscar` com a regra do terceiro. É esta função que o nó `buscar` do grafo deve usar."""
+    consulta = texto + EXPANSAO_TERCEIRO if menciona_terceiro(texto, terceiros) else texto
+    return buscar(consulta, k, caminho=caminho, embedding_function=embedding_function)

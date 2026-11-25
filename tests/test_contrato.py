@@ -212,3 +212,66 @@ def test_buscar_com_e5_real(indice_real, consulta, esperada):
     numeros = [a["numero"] for a in achados]
     assert len(numeros) == config.K_CLAUSULAS
     assert esperada & set(numeros), f"{consulta!r} -> {numeros}"
+
+
+# --- regra do terceiro: expansão da consulta só quando a mensagem cita o terceiro -------
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        ("o João da Nimbus começa amanhã no cliente", True),
+        ("a Carla da Nimbus começa amanhã", True),
+        ("o JOAO chega segunda", True),  # sem acento e em maiúsculas
+        ("falei com a Nimbus ontem", True),
+        ("pode incluir o módulo de relatórios sem custo, a gente resolve", False),
+        ("o Marcos Lima pediu um ajuste no portal", False),
+        ("Joãozinho é outra pessoa", False),  # palavra inteira, não prefixo
+    ],
+)
+def test_menciona_terceiro(texto, esperado):
+    assert contrato.menciona_terceiro(texto) is esperado
+
+
+def test_carregar_terceiros_le_o_projeto_e_tem_padrao(tmp_path):
+    reais = contrato.carregar_terceiros()
+    assert "Nimbus Serviços" in reais and "João Teixeira" in reais and "Carla Mota" in reais
+    assert contrato.carregar_terceiros(tmp_path / "nao_existe.json") == contrato.TERCEIROS_PADRAO
+    quebrado = tmp_path / "quebrado.json"
+    quebrado.write_text("{ isto nao e json", encoding="utf-8")
+    assert contrato.carregar_terceiros(quebrado) == contrato.TERCEIROS_PADRAO
+
+
+def test_buscar_clausulas_so_expande_quando_cita_terceiro(monkeypatch):
+    consultas: list[str] = []
+    monkeypatch.setattr(contrato, "buscar", lambda texto, k=3, **_: consultas.append(texto) or [])
+
+    contrato.buscar_clausulas("o João da Nimbus começa amanhã no cliente")
+    contrato.buscar_clausulas("pode incluir o módulo de relatórios sem custo")
+
+    assert consultas[0].startswith("o João da Nimbus começa amanhã no cliente")
+    assert consultas[0].endswith(contrato.EXPANSAO_TERCEIRO)
+    assert consultas[1] == "pode incluir o módulo de relatórios sem custo"  # inalterada
+
+
+@pytest.mark.integracao
+def test_regra_do_terceiro_com_e5_real_nas_mensagens_do_slack(indice_real):
+    import json
+
+    pasta, ef = indice_real
+    mensagens = json.loads(
+        (Path(__file__).parent.parent / "data" / "slack_export.json").read_text(encoding="utf-8")
+    )
+    joao = next(m["text"] for m in mensagens if "João da Nimbus" in m["text"])
+    carla = next(m["text"] for m in mensagens if "Carla da Nimbus" in m["text"])
+    for texto in (joao, carla):
+        achados = contrato.buscar_clausulas(texto, caminho=pasta, embedding_function=ef)
+        assert any(a["numero"].startswith("6.") for a in achados), [a["numero"] for a in achados]
+    # A frase do momento uau não cita terceiro: continua sem a cláusula 6 e com a 2.2.
+    uau = contrato.buscar_clausulas(
+        "pode incluir o módulo de relatórios sem custo, a gente resolve",
+        caminho=pasta,
+        embedding_function=ef,
+    )
+    numeros = [a["numero"] for a in uau]
+    assert "2.2" in numeros and not any(n.startswith("6.") for n in numeros), numeros
