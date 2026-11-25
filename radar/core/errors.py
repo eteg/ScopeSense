@@ -23,3 +23,7 @@ class ForaDoEscopo(AcessoNegado):
 
 class FalhaNaFonte(RadarError):
     """O serviço externo (Slack, Google...) respondeu erro ou não respondeu."""
+
+
+class SaidaInvalida(RadarError):
+    """O modelo não devolveu JSON válido para o schema, mesmo após as novas tentativas."""
