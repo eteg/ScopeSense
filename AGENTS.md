@@ -12,7 +12,7 @@ Na ETEG, e em qualquer empresa que compra ou vende projetos, o **desvio só apar
 
 ## 2. O que estamos construindo hoje (25/11/2026)
 
-Um **MVP em um dia, com 3 devs**: Joe (permissões, dados, ROI, pitch), Ricardo (pipeline, grafo, eval) e Gabriel (ingestão, Slack, telas). As tarefas estão nas issues do GitHub e em `docs/issues/`.
+Um **MVP em um dia, com 3 devs e sem dono fixo por tarefa**. As 43 issues estão no GitHub (e em `docs/issues/`), divididas em **8 ondas de paralelização**: tudo dentro de uma onda pode rodar ao mesmo tempo. Leia [docs/ONDAS-PARALELIZACAO.md](docs/ONDAS-PARALELIZACAO.md) para saber o que está liberado, o que depende de quê e qual *mock* usar para não esperar.
 
 **Meta:** uma mensagem digitada no Slack vira alerta na DM do responsável, com a cláusula e a mensagem lado a lado, e o clique nos botões fica registrado. Os 4 desvios aparecem; as iscas **não** geram alerta; o eval imprime precisão e recall; o Langfuse mostra custo e tempo de cada alerta.
 
@@ -86,7 +86,7 @@ As assinaturas entre módulos estão na tabela da seção 5 de `docs/PLANO-MVP.m
 
 ## 8. Como trabalhar numa issue
 
-1. Pegue uma issue do seu nome cujas dependências estejam prontas. O corpo da issue tem **passo a passo, trechos de código, prompt sugerido e "Pronto quando"**. Siga.
+1. Pegue uma issue **livre da menor onda** cujas dependências estejam prontas (label `onda:N`, campo **Onda** no quadro), **atribua a você** e comece. O corpo da issue tem **passo a passo, trechos de código, prompt sugerido e "Pronto quando"**. Siga. Se faltar pouco para a dependência fechar, comece com um *mock* (ver `docs/ONDAS-PARALELIZACAO.md`, seção 3).
 2. Branch com o ID: `git switch -c G-04-obrigacoes`. PR pequeno. A `master` precisa continuar rodando.
 3. Entregue o mínimo que satisfaz o "Pronto quando". Marque os itens e mova o card no projeto: 🚧 Em andamento → 🔍 Em revisão → ✅ Pronto.
 4. Bloqueado? Mude para ⛔ Bloqueado e comente na issue marcando quem destrava.

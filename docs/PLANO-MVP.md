@@ -26,6 +26,8 @@
 | **Ricardo** | Mais técnico | Caminho crítico do **pipeline**: schema, LangGraph, classificação com RAG, aprovação humana, Langfuse, eval |
 | **Gabriel** | Dono do repositório | **Ingestão e Slack**: repositório, fontes e parsers, obrigações do contrato, ChromaDB, escuta do canal, DM, botões, Streamlit |
 
+> **Atualização:** não há mais dono fixo por issue. A divisão acima é só a **sugestão inicial** (e o motivo das letras J, R e G nos IDs, que continuam servindo de identificador). As issues estão organizadas em **ondas de paralelização**: veja [ONDAS-PARALELIZACAO.md](ONDAS-PARALELIZACAO.md). Quem estiver livre pega uma issue da menor onda com dependências prontas, se atribui e move o card.
+
 Os 3 trabalham em paralelo desde o minuto zero. Quem terminar antes **puxa** a próxima issue `P0` livre do quadro, depois as `P1`.
 
 ## 3. Marcos do dia
