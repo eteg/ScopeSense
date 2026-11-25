@@ -87,12 +87,13 @@ def chamar_estruturado(
         CONTADORES["chamadas"] += 1
         inicio = time.perf_counter()
         try:
-            # NÃO VERIFICADO contra o SDK real (anthropic não estava instalado ao escrever):
-            # segue o plano, messages.parse(..., output_format=schema) -> parsed_output.
+            # Verificado contra o SDK instalado (anthropic 2.14): `messages.parse` aceita
+            # model, max_tokens, system, messages e output_format, e devolve `parsed_output`.
+            # Ele NÃO aceita `temperature`, por isso o argumento `temperatura` desta função é
+            # mantido só por compatibilidade com quem já chama e não é enviado.
             resposta = _get_client().messages.parse(
                 model=modelo,
                 max_tokens=MAX_TOKENS,
-                temperature=temperatura,
                 system=system,
                 messages=[{"role": "user", "content": user}],
                 output_format=schema,

@@ -67,7 +67,19 @@ def test_chamada_simples(monkeypatch):
     enviado = falso.chamadas[0]
     assert enviado["model"] == "modelo-x"
     assert enviado["output_format"] is SaidaClassificacao
-    assert enviado["temperature"] == 0.0
+    assert "temperature" not in enviado  # o SDK atual não aceita esse parâmetro
+
+
+def test_argumentos_existem_no_sdk_real(monkeypatch):
+    """Contrato com o SDK instalado: tudo o que enviamos a `messages.parse` precisa existir."""
+    import inspect
+
+    anthropic = pytest.importorskip("anthropic")
+    falso = ClienteFalso([SAIDA])
+    monkeypatch.setattr(llm, "_client", falso)
+    chamar()
+    aceitos = set(inspect.signature(anthropic.resources.messages.Messages.parse).parameters)
+    assert set(falso.chamadas[0]) <= aceitos
 
 
 def test_retenta_ao_receber_saida_invalida(monkeypatch):
