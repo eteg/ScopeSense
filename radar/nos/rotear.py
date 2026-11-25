@@ -3,7 +3,9 @@
 from collections.abc import Callable
 
 from radar.core.models import Acao, Alerta, Registro
-from radar.roteamento import rotear_alerta  # R-05: regra oficial (papel por tipo, ação por confiança)
+
+# R-05: regra oficial (papel por tipo, ação por confiança)
+from radar.roteamento import rotear_alerta
 
 __all__ = ["Notificador", "definir_notificador", "notificador_padrao", "rotear", "rotear_alerta"]
 
