@@ -1,0 +1,26 @@
+---
+config:
+  flowchart:
+    curve: linear
+---
+graph TD;
+	__start__([<p>__start__</p>]):::first
+	buscar(buscar)
+	classificar(classificar)
+	conferir_documentos(conferir_documentos)
+	rotear(rotear)
+	aprovar(aprovar)
+	registrar(registrar)
+	__end__([<p>__end__</p>]):::last
+	__start__ --> buscar;
+	aprovar --> registrar;
+	buscar --> classificar;
+	classificar -. &nbsp;fim&nbsp; .-> __end__;
+	classificar -. &nbsp;seguir&nbsp; .-> conferir_documentos;
+	conferir_documentos --> rotear;
+	rotear -. &nbsp;fim&nbsp; .-> __end__;
+	rotear -.-> aprovar;
+	registrar --> __end__;
+	classDef default fill:#f2f0ff,line-height:1.2
+	classDef first fill-opacity:0
+	classDef last fill:#bfb6fc
