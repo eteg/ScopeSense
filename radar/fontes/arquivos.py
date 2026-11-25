@@ -30,10 +30,17 @@ def _vazio(caminho: Path) -> list[Registro]:
     return []
 
 
+def _ler_vtt(caminho: Path) -> list[Registro]:
+    """G-09 (import tardio: `reuniao.py` importa `FUSO` e `gerar_id` deste módulo)."""
+    from radar.fontes.reuniao import ler_vtt
+
+    return ler_vtt(caminho)
+
+
 # Os outros devs só trocam a entrada (ex.: PARSERS["slack_export.json"] = parse_slack).
 PARSERS: dict[str, Parser] = {
     "slack_export.json": _vazio,  # G-03
-    ".vtt": _vazio,  # G-09
+    ".vtt": _ler_vtt,  # G-09
     ".eml": _vazio,  # G-14
     ".pdf": _vazio,  # G-10
 }
