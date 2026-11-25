@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Reporta
 
-## Getting Started
+Next.js 16 rodando em **Cloudflare Workers** (via [OpenNext](https://opennext.js.org/cloudflare)) com banco **Cloudflare D1** (SQLite) acessado por **Drizzle ORM**.
 
-First, run the development server:
+## Ambientes
+
+Um único ambiente na Cloudflare (Worker `reporta`, D1 `reporta`), publicado a cada push na `main`. Localmente o D1 é emulado (miniflare, em `.wrangler/`). Tudo é definido em [wrangler.jsonc](wrangler.jsonc); o binding do banco é `DB`.
+
+## Desenvolvimento local
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run db:migrate:local   # cria as tabelas no D1 local
+npm run dev                # http://localhost:3000  (health: /api/health)
+npm run preview            # build real do Worker rodando no workerd local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Banco de dados (D1 + Drizzle)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Schema: [db/schema.ts](db/schema.ts)
+- Client: `getDb()` em [lib/db.ts](lib/db.ts) (apenas server-side)
+- Migrações SQL: [db/migrations/](db/migrations/)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Fluxo para alterar o banco:
 
-## Learn More
+```bash
+# 1. edite db/schema.ts
+npm run db:generate        # gera o SQL em db/migrations
+npm run db:migrate:local   # aplica localmente
+# 2. commite db/schema.ts + db/migrations — o CI falha se esquecer
+```
 
-To learn more about Next.js, take a look at the following resources:
+As migrações remotas são aplicadas automaticamente pelo deploy. Manualmente: `npm run db:migrate:remote`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Exemplo de uso:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```ts
+import { getDb } from "@/lib/db";
+import { reports } from "@/db/schema";
 
-## Deploy on Vercel
+const db = await getDb();
+const rows = await db.select().from(reports);
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Após mudar bindings/vars no `wrangler.jsonc`, rode `npm run cf-typegen` para atualizar [cloudflare-env.d.ts](cloudflare-env.d.ts).
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## CI/CD (GitHub Actions)
+
+- **[CI](.github/workflows/ci.yml)** — em PRs para `main`: lint, typecheck, verifica se as migrações estão em sincronia com o schema, aplica as migrações num D1 limpo e faz o build do Worker.
+- **[Deploy](.github/workflows/deploy.yml)** — push em `main` (ou *Run workflow* manual): lint/typecheck → build → migrações D1 remotas → deploy → smoke test em `/api/health`.
+
+## Setup inicial (uma vez)
+
+1. **Criar o banco D1** (precisa de `npx wrangler login`):
+   ```bash
+   npx wrangler d1 create reporta
+   ```
+   Copie o `database_id` para o `wrangler.jsonc` (no lugar de `REPLACE_WITH_D1_ID`) e commite.
+
+2. **Criar um API token** na Cloudflare (*My Profile → API Tokens → Create Token*, template **Edit Cloudflare Workers** + permissão **Account → D1 → Edit**).
+
+3. **No GitHub** (*Settings → Secrets and variables → Actions*):
+   - Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+   - Variable opcional `APP_URL` (ex.: `https://reporta.<subdominio>.workers.dev`) para habilitar o smoke test.
+
+## Observações
+
+- Cache: [open-next.config.ts](open-next.config.ts) usa o cache de static assets (serve o que foi pré-renderizado, sem revalidação). Se precisar de ISR/`revalidate`, troque por R2 ou KV ([docs](https://opennext.js.org/cloudflare/caching)).
+- Segredos locais: copie `.dev.vars.example` para `.dev.vars`. Remotos: `npx wrangler secret put NOME`.
+- Se o `next dev` reclamar de módulos de fonte após um `npm run preview`, apague `.next/`.
