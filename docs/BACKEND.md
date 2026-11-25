@@ -41,6 +41,31 @@ conda activate dev-hackthon
    - `SLACK_USER_TOKEN`: o `xoxp-...`.
    - `SLACK_CHANNEL_IDS`: IDs dos canais do projeto (`C...`), separados por vírgula. No Slack, clique no nome do canal; o ID aparece no rodapé da janela.
 
+## Configurar o Gmail
+
+O Radar lê **só os e-mails do projeto**, nunca a caixa inteira. Um e-mail é do projeto se:
+
+- **envolve o cliente** (`GMAIL_CLIENT_CONTACTS` ou `GMAIL_CLIENT_DOMAINS` em de, para ou cópia), **em qualquer assunto**; assim, um pedido do cliente sobre outro tema também é rastreado; ou
+- **é só da equipe interna** (`GMAIL_PARTICIPANTS`) e **cita um termo do projeto** (`GMAIL_PROJECT_TERMS`) ou tem o marcador `GMAIL_LABEL`. Sem essa condição, entraria conversa interna de outros projetos.
+
+A busca é montada no código e pode ser vista em `GET /gmail/query`. Cada mensagem ainda passa por uma segunda checagem depois da busca. Limitação: se o mesmo contato do cliente participar de dois projetos, os e-mails dos dois entram. Nesse caso, use o termo ou o marcador.
+
+Credencial, só com o escopo `gmail.readonly`:
+
+1. **Recomendado (renova sozinha):**
+   1. No Google Cloud, ative a **Gmail API**.
+   2. Crie um cliente OAuth do tipo **App para computador** (Desktop).
+   3. Se a tela de consentimento estiver em modo de teste, adicione a conta monitorada como usuária de teste.
+   4. Baixe o JSON do cliente para `.secrets/gmail_client_secret.json`.
+   5. Rode:
+      ```bash
+      python -m radar.fontes.gmail.autorizar
+      ```
+      O navegador abre. Entre com a conta monitorada e aprove; o token fica em `.secrets/gmail_token.json`.
+2. **Teste rápido:** defina `GMAIL_ACCESS_TOKEN=ya29...` no `.env`. Esse token expira em cerca de 1 hora e não é renovado.
+
+A pasta `.secrets/` e o `.env` ficam fora do Git. `GET /fontes/email/status` mostra a conta, os escopos do token e um aviso se houver escopo além de leitura.
+
 ## Rodar
 
 ```bash
@@ -86,6 +111,20 @@ curl -X POST localhost:8000/slack/mcp/tools/<nome> \
 ```
 
 Qualquer pedido para um canal fora de `SLACK_CHANNEL_IDS` volta com 403.
+
+Rotas específicas do Gmail:
+
+| Método | Endpoint | O que faz |
+|---|---|---|
+| GET | `/gmail/query` | Busca aplicada (envolvidos + projeto) |
+| GET | `/gmail/threads/{id}` | Uma conversa do projeto; conversa fora do projeto volta com 403 |
+| GET | `/gmail/mcp/tools` | Ferramentas do servidor MCP do Gmail e quais estão liberadas |
+| POST | `/gmail/mcp/tools/{nome}` | Executa uma ferramenta MCP de leitura. A busca é sempre embrulhada no filtro do projeto; a leitura por ID é conferida antes pela Gmail API |
+
+```bash
+# e-mails do projeto desde 1º/11
+curl "localhost:8000/fontes/email/registros?desde=2026-11-01T00:00:00-03:00"
+```
 
 ### Política das ferramentas MCP
 

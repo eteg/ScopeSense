@@ -2,6 +2,7 @@
 
 from pydantic import ValidationError
 
+from radar.config_errors import describe_validation_error
 from radar.core.errors import FonteNaoConfigurada
 from radar.fontes.slack.config import SlackSettings
 from radar.fontes.slack.fonte import SlackFonte
@@ -15,6 +16,6 @@ def create() -> SlackFonte:
     try:
         settings = SlackSettings()  # type: ignore[call-arg]
     except ValidationError as exc:
-        missing = ", ".join(f"SLACK_{str(e['loc'][0]).upper()}" for e in exc.errors())
-        raise FonteNaoConfigurada(f"Slack sem configuração no .env: {missing}.") from exc
+        problems = describe_validation_error(exc, "SLACK_")
+        raise FonteNaoConfigurada(f"Slack sem configuração no .env: {problems}.") from exc
     return SlackFonte(settings)

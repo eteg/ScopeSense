@@ -42,6 +42,9 @@ def _tool(name: str, read_only: bool | None) -> Tool:
         ("slack_search_public", True, False),  # busca bloqueada no Slack
         ("slack_get_file_upload_url", True, False),
         ("slack_thread_summary", True, False),  # 'thread' não é verbo de leitura
+        ("slack_read_file", True, False),  # sem canal: poderia ler arquivo de outro canal
+        ("slack_list_user_channels", True, False),  # lista canais fora do projeto
+        ("slack_list_channel_members", True, True),  # recebe canal, validado nos argumentos
     ],
 )
 def test_politica_mcp_do_slack(name: str, read_only: bool | None, expected: bool) -> None:
@@ -131,3 +134,12 @@ def test_status_aponta_escopos_de_escrita(make_slack) -> None:
 
     slack, _ = make_slack(**{"auth.test": {**auth, "scopes": ["channels:history"]}})
     assert slack.status()["aviso"] is None
+
+
+def test_bloqueio_dentro_da_sessao_mcp_continua_sendo_bloqueio() -> None:
+    from radar.core.errors import FalhaNaFonte
+    from radar.mcp.client import _translate
+
+    grupo = ExceptionGroup("tg", [EscritaBloqueada("slack_send_message")])
+    assert isinstance(_translate(grupo, "https://mcp"), EscritaBloqueada)
+    assert isinstance(_translate(ExceptionGroup("tg", [TimeoutError()]), "x"), FalhaNaFonte)

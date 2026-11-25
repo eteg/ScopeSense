@@ -29,6 +29,9 @@ dependencies = [
     "tzdata>=2024.1",
     # O checkpointer SQLite do LangGraph (pacote langgraph-checkpoint-sqlite) é decisão do R-02
     # e não entrou aqui.
+    "google-auth>=2.30",
+    "google-auth-oauthlib>=1.2",
+    "requests>=2.31",
 ]
 
 [project.optional-dependencies]

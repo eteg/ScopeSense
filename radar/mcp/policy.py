@@ -18,13 +18,17 @@ class ReadOnlyPolicy:
 
     1. o servidor a anota como somente leitura (``read_only_hint``);
     2. o nome tem um verbo de leitura e nenhum verbo de escrita;
-    3. o nome não tem nenhum termo bloqueado pelo canal (ex.: busca no Slack).
+    3. o nome não tem nenhum termo bloqueado pelo canal (ex.: busca no Slack);
+    4. a ferramenta não está na lista de bloqueio explícito do canal.
     """
 
     read_verbs: tuple[str, ...] = ("read", "list", "get", "search")
     blocked_terms: dict[str, str] | None = None  # termo -> motivo
+    blocked_tools: dict[str, str] | None = None  # nome exato -> motivo
 
     def evaluate(self, tool: Tool) -> tuple[bool, str]:
+        if tool.name in (self.blocked_tools or {}):
+            return False, (self.blocked_tools or {})[tool.name]
         words = tool_words(tool.name)
         hint = tool.annotations.read_only_hint if tool.annotations else None
         if hint is not True:
