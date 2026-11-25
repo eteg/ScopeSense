@@ -1,8 +1,9 @@
 """Grafo LangGraph do Radar: buscar, classificar, conferir documentos, rotear, aprovar, registrar.
 
 Interface para o resto do time: `configurar(notificador)` e `processar(registro, contexto)`.
-`retomar` fica para o R-04. O checkpointer é em memória: `processar` e `retomar` precisam rodar
-no MESMO processo (TODO(R-04): avaliar o checkpointer SQLite do LangGraph).
+`retomar(registro_id, decisao)` continua a pausa de aprovação. O checkpointer é em memória:
+`processar` e `retomar` precisam rodar no MESMO processo. Alternativa a avaliar: o checkpointer
+SQLite do LangGraph (`langgraph-checkpoint-sqlite`), que liberaria essa restrição.
 """
 
 from collections.abc import Sequence
@@ -10,6 +11,7 @@ from typing import TypedDict
 
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import END, START, StateGraph
+from langgraph.types import Command
 
 from radar.core.models import Acao, Alerta, Decisao, Registro
 from radar.nos.aprovar import aprovar
@@ -73,3 +75,15 @@ def processar(registro: Registro, contexto: Sequence[Registro] = ()) -> dict:
     """
     config = {"configurable": {"thread_id": registro.id}}
     return grafo.invoke({"registro": registro, "contexto": list(contexto)}, config=config)
+
+
+def retomar(registro_id: str, decisao: Decisao) -> dict | None:
+    """Continua o grafo pausado em `aprovar` com a decisão humana e devolve o estado final.
+
+    Devolve `None` se não há pausa pendente (já decidido ou nunca pausou): o segundo clique
+    não grava de novo. Precisa rodar no MESMO processo de `processar` (InMemorySaver).
+    """
+    config = {"configurable": {"thread_id": registro_id}}
+    if not grafo.get_state(config).next:
+        return None
+    return grafo.invoke(Command(resume=decisao.model_dump(mode="json")), config=config)

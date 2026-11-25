@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 
-from radar import grafo
+from radar import config, grafo
 from radar.core.models import Alerta, Origem, Papel, Registro, TipoDesvio
 from radar.nos.rotear import notificador_padrao
 from radar.pipeline import analisar
@@ -18,6 +18,12 @@ def _registro(id_: str, texto: str) -> Registro:
         autor="cliente",
         texto=texto,
     )
+
+
+@pytest.fixture(autouse=True)
+def banco(tmp_path, monkeypatch):
+    """O nó `rotear` agora grava o alerta no SQLite: aponta para um banco temporário."""
+    monkeypatch.setattr(config, "DATABASE_PATH", str(tmp_path / "t.db"))
 
 
 @pytest.fixture
