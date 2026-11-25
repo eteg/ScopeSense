@@ -25,3 +25,9 @@ data/*.db-*
 data/cache/
 chroma/
 eval/resultados/*.json
+
+# Credenciais locais (tokens OAuth). Nunca vão para o Git.
+.secrets/
+
+# Banco local de achados (SQLite)
+.data/

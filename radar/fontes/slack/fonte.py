@@ -1,16 +1,20 @@
 """Adaptador do Slack para a porta `Fonte`."""
 
-from datetime import UTC, datetime
+import re
+from datetime import datetime, timedelta
 from typing import Any
 
-from radar.core.errors import AcessoNegado, ForaDoEscopo
+from radar.core.errors import AcessoNegado, EntradaInvalida, ForaDoEscopo
 from radar.core.models import Consulta, Origem, Registro
 from radar.fontes.slack.config import SlackSettings
 from radar.fontes.slack.readonly import ReadOnlySlackClient
+from radar.fontes.slack.texto import limpar_mencoes
 
 # Mensagens de sistema que não são evidência do projeto.
 IGNORED_SUBTYPES = frozenset({"channel_join", "channel_leave", "channel_purpose", "channel_topic"})
 PAGE_SIZE = 200
+MAX_LIST_PAGES = 50  # até 10 mil canais ao procurar um nome
+CHANNEL_ID = re.compile(r"^[CG][A-Z0-9]{8,}$")
 
 
 class SlackFonte:
@@ -45,8 +49,9 @@ class SlackFonte:
     def fetch(self, consulta: Consulta) -> list[Registro]:
         """Mensagens (com threads) de um canal do projeto, ou de todos se `escopo` vier vazio."""
         channels = [consulta.escopo] if consulta.escopo else sorted(self._allowed)
-        oldest = str(consulta.desde.timestamp()) if consulta.desde else None
-        latest = str(consulta.ate.timestamp()) if consulta.ate else None
+        desde, ate = self._aware(consulta.desde), self._aware(consulta.ate)
+        oldest = str(desde.timestamp()) if desde else None
+        latest = str(ate.timestamp()) if ate else None
 
         registros: list[Registro] = []
         for channel_id in channels:
@@ -59,12 +64,70 @@ class SlackFonte:
                     include_threads=True,
                 )
             )
-        if consulta.desde:  # respostas de thread antiga podem vir antes de `desde`
-            registros = [r for r in registros if r.data >= consulta.desde]
+        # Garantia final de que nada fora do período passa adiante.
+        registros = [
+            r for r in registros if (not desde or r.data >= desde) and (not ate or r.data <= ate)
+        ]
         registros.sort(key=lambda r: r.data)
         return registros[-consulta.limite :]
 
     # --- leitura específica do Slack ---------------------------------------
+
+    def set_allowed(self, channel_ids: list[str]) -> None:
+        """Troca os canais do projeto (vêm da tela de Configurações)."""
+        if channel_ids:
+            self._allowed = set(channel_ids)
+
+    def resolver_canais(self, refs: list[str]) -> list[dict[str, str]]:
+        """Converte "#nome" ou ID em {id, nome}, conferindo que o token enxerga o canal.
+
+        Levanta EntradaInvalida com os canais que não existem ou não são visíveis.
+        """
+        self._auth_data()
+        resolvidos: list[dict[str, str]] = []
+        faltando: list[str] = []
+        por_nome: dict[str, dict[str, str]] | None = None
+        for ref in refs:
+            ref = ref.strip()
+            if CHANNEL_ID.match(ref):
+                try:
+                    info = self._client.call("conversations.info", channel=ref)["channel"]
+                except AcessoNegado:
+                    faltando.append(ref)
+                    continue
+                resolvidos.append({"id": info["id"], "nome": info.get("name") or ref})
+                continue
+            if por_nome is None:
+                por_nome = self._canais_por_nome()
+            canal = por_nome.get(ref.lstrip("#").lower())
+            if canal:
+                resolvidos.append(canal)
+            else:
+                faltando.append(ref)
+        if faltando:
+            raise EntradaInvalida(
+                f"Canal não encontrado ou sem acesso no Slack: {', '.join(faltando)}."
+            )
+        return resolvidos
+
+    def _canais_por_nome(self) -> dict[str, dict[str, str]]:
+        canais: dict[str, dict[str, str]] = {}
+        cursor: str | None = None
+        for _ in range(MAX_LIST_PAGES):
+            params: dict[str, Any] = {
+                "types": "public_channel,private_channel",
+                "exclude_archived": True,
+                "limit": PAGE_SIZE,
+            }
+            if cursor:
+                params["cursor"] = cursor
+            data = self._client.call("conversations.list", **params)
+            for c in data.get("channels", []):
+                canais[c["name"].lower()] = {"id": c["id"], "nome": c["name"]}
+            cursor = (data.get("response_metadata") or {}).get("next_cursor")
+            if not cursor:
+                break
+        return canais
 
     def check_channel(self, channel_id: str) -> None:
         if channel_id not in self._allowed:
@@ -95,7 +158,12 @@ class SlackFonte:
         limit: int = 100,
         include_threads: bool = False,
     ) -> list[Registro]:
-        """Mensagens do canal em ordem cronológica (mais antiga primeiro)."""
+        """Mensagens do canal em ordem cronológica (mais antiga primeiro).
+
+        Com `include_threads`, traz as respostas das threads que caem no período,
+        inclusive de threads abertas antes de `oldest` (até `thread_lookback_days`
+        antes) que continuaram recebendo respostas dentro do período.
+        """
         self.check_channel(channel_id)
         self._auth_data()
 
@@ -112,10 +180,13 @@ class SlackFonte:
                 continue
             registros.append(self._to_registro(channel_id, message))
             if include_threads and message.get("reply_count"):
-                registros.extend(
-                    self.thread_replies(channel_id, message["ts"], include_parent=False)
-                )
-        return registros
+                registros.extend(self._replies_in_period(channel_id, message, oldest, latest))
+
+        if include_threads and oldest:
+            registros.extend(self._older_threads_replies(channel_id, oldest, latest))
+        # Resposta enviada "também ao canal" aparece no histórico e na thread.
+        unicos = {r.id: r for r in registros}
+        return sorted(unicos.values(), key=lambda r: r.data)
 
     def thread_replies(
         self, channel_id: str, thread_ts: str, *, include_parent: bool = True
@@ -127,7 +198,71 @@ class SlackFonte:
             raw = [m for m in raw if m.get("ts") != thread_ts]
         return [self._to_registro(channel_id, m) for m in raw]
 
+    def lookup_user(self, email: str) -> dict[str, Any]:
+        """ID do Slack a partir do e-mail (para marcar o responsável de cada papel).
+
+        Levanta NaoEncontrado se ninguém no workspace usa esse e-mail.
+        """
+        self._auth_data()
+        user = self._client.call("users.lookupByEmail", email=email)["user"]
+        profile = user.get("profile") or {}
+        return {
+            "id": user["id"],
+            "nome": profile.get("display_name") or profile.get("real_name") or user.get("name"),
+            "nome_completo": profile.get("real_name"),
+            "email": profile.get("email") or email,
+            "mencao": f"<@{user['id']}>",
+            "ativo": not user.get("deleted", False),
+            "bot": user.get("is_bot", False),
+        }
+
     # --- internos ---------------------------------------------------------
+
+    def _aware(self, value: datetime | None) -> datetime | None:
+        """Data sem fuso é lida no fuso do projeto (e não no do servidor)."""
+        if value is None or value.tzinfo is not None:
+            return value
+        return value.replace(tzinfo=self.settings.tz)
+
+    def _replies_in_period(
+        self, channel_id: str, parent: dict[str, Any], oldest: str | None, latest: str | None
+    ) -> list[Registro]:
+        """Respostas de uma thread (sem a raiz) com data dentro de [oldest, latest]."""
+        replies = self.thread_replies(channel_id, parent["ts"], include_parent=False)
+        start = float(oldest) if oldest else None
+        end = float(latest) if latest else None
+        return [
+            r
+            for r in replies
+            if (start is None or float(r.metadados["ts"]) >= start)
+            and (end is None or float(r.metadados["ts"]) <= end)
+        ]
+
+    def _older_threads_replies(
+        self, channel_id: str, oldest: str, latest: str | None
+    ) -> list[Registro]:
+        """Threads abertas antes do período que receberam respostas dentro dele.
+
+        `conversations.history` com `oldest` só devolve raízes criadas no período,
+        então uma conversa antiga que continua viva ficaria de fora.
+        """
+        lookback = timedelta(days=self.settings.thread_lookback_days).total_seconds()
+        if not lookback:
+            return []
+        params = {
+            "channel": channel_id,
+            "oldest": str(float(oldest) - lookback),
+            "latest": oldest,
+        }
+        registros: list[Registro] = []
+        for parent in self._paginate("conversations.history", params):
+            if (
+                parent.get("reply_count")
+                and float(parent["ts"]) < float(oldest)
+                and float(parent.get("latest_reply") or 0) >= float(oldest)
+            ):
+                registros.extend(self._replies_in_period(channel_id, parent, oldest, latest))
+        return registros
 
     def _auth_data(self) -> dict[str, Any]:
         """Confere o token e garante que ele é do workspace configurado."""
@@ -185,18 +320,20 @@ class SlackFonte:
         thread_ts = message.get("thread_ts")
         user_id = message.get("user")
         autor = self._user_name(user_id) if user_id else message.get("username") or "bot"
+        texto, mencionados = limpar_mencoes(message.get("text", ""), self._user_name)
         return Registro(
             id=f"slack:{channel_id}:{ts}",
             origem=Origem.slack,
-            data=datetime.fromtimestamp(float(ts), tz=UTC),
+            data=datetime.fromtimestamp(float(ts), tz=self.settings.tz),
             autor=autor,
-            texto=message.get("text", ""),
+            texto=texto,
             link=self._permalink(channel_id, ts, thread_ts),
             metadados={
                 "canal": channel_id,
                 "ts": ts,
                 "thread_ts": thread_ts,
                 "autor_id": user_id,
+                "mencionados": mencionados,
                 "respostas": message.get("reply_count", 0),
                 "subtipo": message.get("subtype"),
             },

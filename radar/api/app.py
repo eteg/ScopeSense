@@ -3,8 +3,16 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from radar.api.routes import fontes, gmail, slack
-from radar.core.errors import AcessoNegado, FalhaNaFonte, FonteNaoConfigurada, RadarError
+from radar.api.routes import achados, fontes, gmail, projeto, slack
+from radar.core.errors import (
+    AcessoNegado,
+    Conflito,
+    EntradaInvalida,
+    FalhaNaFonte,
+    FonteNaoConfigurada,
+    NaoEncontrado,
+    RadarError,
+)
 
 app = FastAPI(
     title="Radar de Desvios",
@@ -16,6 +24,9 @@ app = FastAPI(
 _STATUS: list[tuple[type[RadarError], int]] = [
     (FonteNaoConfigurada, 503),
     (AcessoNegado, 403),  # inclui EscritaBloqueada e ForaDoEscopo
+    (NaoEncontrado, 404),
+    (Conflito, 409),
+    (EntradaInvalida, 422),
     (FalhaNaFonte, 502),
 ]
 
@@ -36,3 +47,6 @@ def health() -> dict[str, str]:
 app.include_router(fontes.router)
 app.include_router(slack.router)
 app.include_router(gmail.router)
+app.include_router(achados.router)
+app.include_router(achados.analises_router)
+app.include_router(projeto.router)

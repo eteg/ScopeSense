@@ -1,4 +1,5 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
@@ -6,13 +7,14 @@ from mcp.types import Tool, ToolAnnotations
 
 from radar.api.app import app
 from radar.api.deps import get_registry
-from radar.core.errors import AcessoNegado, EscritaBloqueada, ForaDoEscopo
+from radar.core.errors import AcessoNegado, EscritaBloqueada, ForaDoEscopo, NaoEncontrado
 from radar.core.models import Consulta, Origem
 from radar.fontes.registry import FonteRegistry
 from radar.fontes.slack.mcp import SLACK_POLICY, channel_validator
 from radar.fontes.slack.readonly import ReadOnlySlackClient
+from radar.fontes.slack.texto import limpar_mencoes
 from radar.mcp.policy import ReadOnlyPolicy
-from tests.conftest import CANAL, OUTRO_CANAL
+from tests.conftest import CANAL, OUTRO_CANAL, TEAM
 
 # --- trava de só leitura -------------------------------------------------------
 
@@ -89,7 +91,7 @@ def test_fetch_inclui_threads_e_respeita_desde(make_slack) -> None:
     desde = datetime.fromtimestamp(1700000001, tz=UTC)
     recentes = slack.fetch(Consulta(desde=desde))
     assert [r.texto for r in recentes] == ["a gente faz", "resposta"]
-    history = [p for m, p in fake.calls if m == "conversations.history"][-1]
+    history = [p for m, p in fake.calls if m == "conversations.history"][-2]
     assert history["oldest"] == str(desde.timestamp())
 
 
@@ -143,3 +145,150 @@ def test_bloqueio_dentro_da_sessao_mcp_continua_sendo_bloqueio() -> None:
     grupo = ExceptionGroup("tg", [EscritaBloqueada("slack_send_message")])
     assert isinstance(_translate(grupo, "https://mcp"), EscritaBloqueada)
     assert isinstance(_translate(ExceptionGroup("tg", [TimeoutError()]), "x"), FalhaNaFonte)
+
+
+# --- menções, fuso, threads antigas e busca por e-mail ---------------------------
+
+
+@pytest.mark.parametrize(
+    ("cru", "limpo"),
+    [
+        ("<@U1> consegue até sexta?", "@Ana consegue até sexta?"),
+        ("<@U1|ana> ok", "@Ana ok"),
+        ("<!channel> atenção", "@channel atenção"),
+        ("<!here>", "@here"),
+        ("<!subteam^S123|@devs> revisem", "@devs revisem"),
+        ("ver <#C111111111|projeto-x>", "ver #projeto-x"),
+        ("<!date^1700000000^{date}|14/11/2023>", "14/11/2023"),
+        (
+            "<https://exemplo.com|doc> e <mailto:a@b.com>",
+            "<https://exemplo.com|doc> e <mailto:a@b.com>",
+        ),
+        ("escreveu &lt;!channel&gt; literal", "escreveu &lt;!channel&gt; literal"),
+    ],
+)
+def test_limpar_mencoes(cru: str, limpo: str) -> None:
+    texto, _ = limpar_mencoes(cru, lambda uid: {"U1": "Ana"}.get(uid, uid))
+    assert texto == limpo
+
+
+def test_registro_sem_mencoes_que_notificam_e_ids_nos_metadados(make_slack) -> None:
+    history = {
+        "messages": [{"ts": "1700000000.000100", "user": "U1", "text": "<@U2> e <@U1>, <!here>"}],
+        "has_more": False,
+    }
+    slack, _ = make_slack(**{"conversations.history": history})
+    [registro] = slack.channel_messages(CANAL)
+    assert "<" not in registro.texto
+    assert registro.texto == "@Ana Gestora e @Ana Gestora, @here"
+    assert registro.metadados["mencionados"] == ["U2", "U1"]
+
+
+def test_datas_no_fuso_do_projeto(make_slack) -> None:
+    slack, _ = make_slack()
+    registro = slack.channel_messages(CANAL)[0]
+    assert registro.data.utcoffset() == timedelta(hours=-3)
+    assert registro.data == datetime.fromtimestamp(1700000000.0001, tz=UTC)
+    # 1700000000 = 22:13 UTC de 14/11/2023 -> 19:13 em São Paulo
+    assert (registro.data.hour, registro.data.minute) == (19, 13)
+
+
+def test_desde_sem_fuso_e_lido_no_fuso_do_projeto(make_slack) -> None:
+    slack, fake = make_slack()
+    slack.fetch(Consulta(desde=datetime(2023, 11, 14, 19, 13, 20)))  # sem tzinfo
+    history = [p for m, p in fake.calls if m == "conversations.history"][0]
+    assert float(history["oldest"]) == 1700000000.0
+
+
+INICIO = 1700000000.0  # início do período
+
+
+def _history_com_thread_antiga(params: dict[str, Any]) -> dict[str, Any]:
+    if float(params["oldest"]) >= INICIO:  # consulta do período
+        return {"messages": [{"ts": "1700000500.000100", "user": "U1", "text": "nova"}]}
+    # consulta de threads antigas (antes do período)
+    return {
+        "messages": [
+            {"ts": "1699990000.000100", "user": "U1", "text": "acesso?", "reply_count": 2,
+             "latest_reply": "1700000100.000100"},
+            {"ts": "1699980000.000100", "user": "U1", "text": "morta", "reply_count": 1,
+             "latest_reply": "1699980500.000100"},
+        ]
+    }  # fmt: skip
+
+
+def _replies_thread_antiga(params: dict[str, Any]) -> dict[str, Any]:
+    assert params["ts"] == "1699990000.000100", "thread sem resposta no período foi lida"
+    return {
+        "messages": [
+            {"ts": "1699990000.000100", "user": "U1", "text": "acesso?"},
+            {"ts": "1699995000.000100", "user": "U1", "text": "antes do período",
+             "thread_ts": "1699990000.000100"},
+            {"ts": "1700000100.000100", "user": "U1", "text": "ainda aguardando",
+             "thread_ts": "1699990000.000100"},
+        ]
+    }  # fmt: skip
+
+
+def test_respostas_no_periodo_de_thread_aberta_antes(make_slack) -> None:
+    slack, fake = make_slack(
+        **{
+            "conversations.history": _history_com_thread_antiga,
+            "conversations.replies": _replies_thread_antiga,
+        }
+    )
+    registros = slack.fetch(Consulta(desde=datetime.fromtimestamp(INICIO, tz=UTC)))
+    assert [r.texto for r in registros] == ["ainda aguardando", "nova"]
+    assert registros[0].metadados["thread_ts"] == "1699990000.000100"
+    janela = [p for m, p in fake.calls if m == "conversations.history"][1]
+    assert float(janela["oldest"]) == INICIO - 30 * 86400
+    assert janela["latest"] == str(INICIO)
+
+
+def test_resposta_enviada_ao_canal_nao_duplica(make_slack) -> None:
+    history = {
+        "messages": [
+            {"ts": "1700000003.000300", "user": "U1", "text": "resposta",
+             "thread_ts": "1700000002.000200", "subtype": "thread_broadcast"},
+            {"ts": "1700000002.000200", "user": "U1", "text": "a gente faz", "reply_count": 1},
+        ]
+    }  # fmt: skip
+    slack, _ = make_slack(**{"conversations.history": history})
+    textos = [r.texto for r in slack.channel_messages(CANAL, include_threads=True)]
+    assert textos == ["a gente faz", "resposta"]
+
+
+def test_busca_usuario_por_email(make_slack) -> None:
+    user = {
+        "user": {
+            "id": "U777",
+            "name": "gestor",
+            "profile": {"display_name": "Gestor", "real_name": "Gestor Silva", "email": "g@x.com"},
+        }
+    }
+    slack, fake = make_slack(**{"users.lookupByEmail": user})
+    assert slack.lookup_user("g@x.com")["mencao"] == "<@U777>"
+    assert ("users.lookupByEmail", {"email": "g@x.com"}) in fake.calls
+
+    vazio, _ = make_slack(**{"users.lookupByEmail": NaoEncontrado("users_not_found")})
+    app.dependency_overrides[get_registry] = lambda: FonteRegistry({Origem.slack: lambda: vazio})
+    try:
+        resposta = TestClient(app).get("/slack/users/lookup", params={"email": "x@y.com"})
+        assert resposta.status_code == 404
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_fuso_invalido_e_recusado() -> None:
+    from pydantic import ValidationError
+
+    from radar.fontes.slack import SlackSettings
+
+    with pytest.raises(ValidationError):
+        SlackSettings(
+            _env_file=None,  # type: ignore[call-arg]
+            team_id=TEAM,
+            user_token="x",
+            channel_ids=[CANAL],
+            timezone="Lua/Base",
+        )

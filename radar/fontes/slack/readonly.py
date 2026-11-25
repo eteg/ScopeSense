@@ -9,15 +9,17 @@ from typing import Any
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from radar.core.errors import AcessoNegado, EscritaBloqueada, FalhaNaFonte
+from radar.core.errors import AcessoNegado, EscritaBloqueada, FalhaNaFonte, NaoEncontrado
 
 READ_ONLY_METHODS: frozenset[str] = frozenset(
     {
         "auth.test",
         "conversations.info",
+        "conversations.list",  # achar o ID de um canal pelo nome (tela de Configurações)
         "conversations.history",
         "conversations.replies",
         "users.info",
+        "users.lookupByEmail",  # achar o ID de quem marcar a partir do e-mail do papel
     }
 )
 
@@ -26,6 +28,7 @@ _ACCESS_ERRORS = frozenset(
     {"not_in_channel", "channel_not_found", "missing_scope", "invalid_auth", "not_authed",
      "account_inactive", "token_revoked", "no_permission"}
 )  # fmt: skip
+_NOT_FOUND_ERRORS = frozenset({"users_not_found", "user_not_found", "thread_not_found"})
 
 
 class ReadOnlySlackClient:
@@ -39,6 +42,10 @@ class ReadOnlySlackClient:
             response = self._client.api_call(method, http_verb="GET", params=params)
         except SlackApiError as exc:
             error = exc.response.get("error")
+            if error in _NOT_FOUND_ERRORS:
+                raise NaoEncontrado(
+                    f"Slack não encontrou o item pedido em '{method}': {error}."
+                ) from exc
             if error in _ACCESS_ERRORS:
                 raise AcessoNegado(f"Slack recusou '{method}': {error}.") from exc
             raise FalhaNaFonte(f"Slack respondeu erro em '{method}': {error}.") from exc

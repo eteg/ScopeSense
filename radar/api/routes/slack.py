@@ -37,6 +37,15 @@ def slack_thread(channel_id: str, thread_ts: str, slack: SlackDep) -> list[Regis
     return slack.thread_replies(channel_id, thread_ts)
 
 
+@router.get("/users/lookup")
+def slack_user_lookup(
+    slack: SlackDep,
+    email: Annotated[str, Query(min_length=3, description="E-mail cadastrado no Slack")],
+) -> dict[str, Any]:
+    """ID do Slack (e o `<@ID>` pronto para marcar) a partir do e-mail. 404 se não existir."""
+    return slack.lookup_user(email)
+
+
 @router.get("/mcp/tools", tags=["mcp"])
 async def slack_mcp_tools(mcp: SlackMcpDep) -> list[dict[str, Any]]:
     """Ferramentas do servidor MCP do Slack e quais estão liberadas (só leitura)."""

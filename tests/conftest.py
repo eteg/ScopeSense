@@ -13,7 +13,10 @@ OUTRO_CANAL = "C999999999"
 
 
 class FakeSlack(ReadOnlySlackClient):
-    """Responde a partir de um dicionário, mantendo a trava de leitura do cliente real."""
+    """Responde a partir de um dicionário, mantendo a trava de leitura do cliente real.
+
+    O valor pode ser a resposta, uma função dos parâmetros ou uma exceção a levantar.
+    """
 
     def __init__(self, responses: dict[str, Any]) -> None:
         self.responses = responses
@@ -23,7 +26,10 @@ class FakeSlack(ReadOnlySlackClient):
         if method not in READ_ONLY_METHODS:
             raise EscritaBloqueada(method)
         self.calls.append((method, params))
-        return self.responses[method]
+        response = self.responses[method]
+        if isinstance(response, Exception):
+            raise response
+        return response(params) if callable(response) else response
 
 
 def default_responses() -> dict[str, Any]:
