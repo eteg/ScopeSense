@@ -140,9 +140,9 @@ O Slack **não** renderiza Markdown comum:
 - Links no formato `<https://url|texto do link>`. Citações com `>` no início da linha. Listas com `•`.
 - Marque pessoas com `<@USERID>`. **Nunca** use `<!channel>`, `<!here>` ou `<!everyone>`.
 
-O relatório tem **uma mensagem principal** (vai para o canal) e **uma mensagem para cada responsável** (vai como resposta na thread da principal). Separe as partes com uma linha contendo apenas o marcador do papel: `<<<PARA:gestor>>>`, `<<<PARA:comercial>>>` ou `<<<PARA:administrativo_contratos>>>`. Cada papel aparece **no máximo uma vez**. Papel sem nada a fazer não ganha mensagem.
+O relatório tem **uma mensagem de resumo** e **uma mensagem para cada responsável**. Todas vão para o canal como mensagens independentes (nenhuma é resposta de outra): a thread de cada mensagem fica livre para o grupo discutir aquele assunto. Por isso cada mensagem de responsável precisa se entender sozinha, sem depender do resumo. Separe as partes com uma linha contendo apenas o marcador do papel: `<<<PARA:gestor>>>`, `<<<PARA:comercial>>>` ou `<<<PARA:administrativo_contratos>>>`. Cada papel aparece **no máximo uma vez**. Papel sem nada a fazer não ganha mensagem.
 
-Mensagem principal (até 1.200 caracteres), sem marcar ninguém:
+Mensagem de resumo (até 1.200 caracteres), sem marcar ninguém:
 
 ```
 :satellite_antenna: *Radar de Desvios · {{NOME_PROJETO}}*
@@ -157,14 +157,14 @@ Duas ou três frases simples contando a história da semana: o que mais preocupa
 • *Nome da pessoa* (papel): uma frase com o principal que ela precisa fazer
 • *Nome da pessoa* (papel): ...
 
-_Cada pessoa recebe os detalhes aqui na thread. Dúvidas e comentários também são bem-vindos aqui._
+_A seguir, uma mensagem para cada pessoa com os detalhes. Usem a thread de cada mensagem para discutir aquele ponto._
 ```
 
-Mensagem de cada responsável (até 3.000 caracteres, **uma só**), começando pela marcação:
+Mensagem de cada responsável (até 3.000 caracteres, **uma só**), começando pela marcação e pelo nome do relatório:
 
 ```
 <<<PARA:gestor>>>
-<@USERID> estes são os pontos que dependem de você:
+<@USERID> :satellite_antenna: *Radar de Desvios · {{NOME_PROJETO}}* · pontos que dependem de você ({{DATA_INICIO}} a {{DATA_FIM}}):
 
 *🔴 Título claro do ponto (ex.: Apple Watch prometido sem custo)*
 • *Combinado:* frase simples, com o trecho curto entre aspas. (<link|Contrato, cláusula 2.2>)
@@ -182,8 +182,8 @@ Regras do formato:
 - Até 4 pontos por pessoa. Se houver mais, termine com *Também vale olhar:* e uma linha curta por ponto extra.
 - Se não encontrar a pessoa no Slack, comece a mensagem com o nome em negrito e "(não encontrei no Slack)" no lugar da marcação.
 - Se o mesmo ponto apareceu em um relatório anterior do Radar e continua aberto, acrescente `:repeat: já apareceu em DD/MM` ao título.
-- Se **não houver nada a apontar**, publique só a mensagem principal com ":white_check_mark: Nenhum desvio ou problema no período" e as fontes analisadas, sem nenhuma mensagem de responsável.
-- Se não houver contrato, publique só a mensagem principal com o aviso e uma mensagem `<<<PARA:administrativo_contratos>>>` pedindo o documento.
+- Se **não houver nada a apontar**, publique só a mensagem de resumo com ":white_check_mark: Nenhum desvio ou problema no período" e as fontes analisadas, sem nenhuma mensagem de responsável.
+- Se não houver contrato, publique só a mensagem de resumo com o aviso e uma mensagem `<<<PARA:administrativo_contratos>>>` pedindo o documento.
 
 ## Checklist antes de enviar
 

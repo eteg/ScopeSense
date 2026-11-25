@@ -1176,3 +1176,236 @@ a.btn-icone:hover {
   color: var(--texto-suave);
   align-self: center;
 }
+
+/* --- agendamento do relatório (demonstração) ---------------------------- */
+
+.agenda-topo {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.interruptor {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--texto-suave);
+  min-height: 44px;
+}
+
+.interruptor input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.interruptor-trilho {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: var(--borda-forte);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.interruptor-trilho::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.interruptor input:checked + .interruptor-trilho {
+  background: var(--primario);
+}
+
+.interruptor input:checked + .interruptor-trilho::after {
+  transform: translateX(20px);
+}
+
+.interruptor input:focus-visible + .interruptor-trilho {
+  outline: 2px solid var(--primario);
+  outline-offset: 2px;
+}
+
+.agenda-campos {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+
+.agenda-campos:disabled {
+  opacity: 0.5;
+}
+
+.agenda-campos .campo-contorno {
+  flex-basis: 200px;
+}
+
+.agenda-dias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.chip-dia {
+  min-width: 52px;
+  height: 36px;
+  border-radius: 18px;
+  border: 1px solid var(--contorno);
+  background: var(--superficie);
+  color: var(--texto-suave);
+  font-weight: 500;
+}
+
+.chip-dia.ativo {
+  background: var(--primario-claro);
+  border-color: var(--primario-claro);
+  color: var(--primario-claro-texto);
+}
+
+.agenda-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.agenda-proximo {
+  flex: 1 1 260px;
+  color: var(--texto-suave);
+}
+
+.agenda-proximo b {
+  color: var(--texto);
+  font-weight: 500;
+}
+
+.agenda-aviso {
+  margin: 12px 0 0;
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+/* --- progresso da geração do relatório -------------------------------- */
+
+.etapas {
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.etapa {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  transition: background 0.2s;
+}
+
+.etapa + .etapa {
+  border-top: 1px solid var(--linha);
+}
+
+.etapa-icone {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  background: var(--caixa);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.etapa-logo {
+  width: 20px;
+  height: 20px;
+}
+
+.etapa-traco {
+  color: var(--primario);
+}
+
+.etapa-texto {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.etapa-texto b {
+  font-weight: 500;
+}
+
+.etapa-texto span {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--texto-suave);
+  overflow-wrap: anywhere;
+}
+
+.etapa-status {
+  width: 24px;
+  flex: 0 0 24px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.etapa-pendente {
+  opacity: 0.5;
+}
+
+.etapa-andamento {
+  background: var(--selecao-fundo);
+}
+
+.etapa-andamento .etapa-texto span {
+  color: var(--primario);
+}
+
+.etapa-ok .etapa-status {
+  color: #0f5130;
+}
+
+.etapa-erro .etapa-status,
+.etapa-erro .etapa-texto span {
+  color: var(--chip-critico);
+}
+
+.girando {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--primario-claro);
+  border-top-color: var(--primario);
+  animation: girar 0.8s linear infinite;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .girando {
+    animation-duration: 2.4s;
+  }
+}

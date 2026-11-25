@@ -1,11 +1,12 @@
 """Adaptador do Slack para a porta `Fonte`."""
 
 import re
+import time
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Any
 
-from radar.core.errors import AcessoNegado, EntradaInvalida, ForaDoEscopo
+from radar.core.errors import AcessoNegado, EntradaInvalida, FalhaNaFonte, ForaDoEscopo
 from radar.core.models import Consulta, Origem, Registro
 from radar.fontes.slack.config import SlackSettings
 from radar.fontes.slack.readonly import ReadOnlySlackClient
@@ -15,6 +16,7 @@ from radar.fontes.slack.texto import limpar_mencoes
 IGNORED_SUBTYPES = frozenset({"channel_join", "channel_leave", "channel_purpose", "channel_topic"})
 PAGE_SIZE = 200
 MAX_LIST_PAGES = 50  # até 10 mil canais ao procurar um nome
+CACHE_USUARIOS_S = 30 * 60  # lista de usuários do workspace
 CHANNEL_ID = re.compile(r"^[CG][A-Z0-9]{8,}$")
 
 
@@ -27,6 +29,7 @@ class SlackFonte:
         self._allowed = set(settings.channel_ids)
         self._auth: dict[str, Any] | None = None
         self._user_names: dict[str, str] = {}
+        self._usuarios: tuple[float, dict[str, set[str]]] | None = None
 
     # --- porta Fonte ------------------------------------------------------
 
@@ -117,6 +120,18 @@ class SlackFonte:
         Nome que não bate com ninguém (ou bate com mais de uma pessoa) fica None:
         o relatório escreve o nome em negrito com "(não encontrei no Slack)".
         """
+        indice = self._indice_usuarios()
+        saida: dict[str, str | None] = {}
+        for nome in nomes:
+            ids = indice.get(_normalizar(nome), set())
+            saida[nome] = next(iter(ids)) if len(ids) == 1 else None
+        return saida
+
+    def _indice_usuarios(self) -> dict[str, set[str]]:
+        """Nome normalizado -> IDs. Guardado por 30 min: a lista do workspace é grande."""
+        agora = time.monotonic()
+        if self._usuarios and agora - self._usuarios[0] < CACHE_USUARIOS_S:
+            return self._usuarios[1]
         self._auth_data()
         indice: dict[str, set[str]] = {}
         cursor: str | None = None
@@ -124,7 +139,7 @@ class SlackFonte:
             params: dict[str, Any] = {"limit": PAGE_SIZE}
             if cursor:
                 params["cursor"] = cursor
-            data = self._client.call("users.list", **params)
+            data = self._call_com_retentativa("users.list", **params)
             for u in data.get("members", []):
                 if u.get("deleted") or u.get("is_bot"):
                     continue
@@ -135,11 +150,19 @@ class SlackFonte:
             cursor = (data.get("response_metadata") or {}).get("next_cursor")
             if not cursor:
                 break
-        saida: dict[str, str | None] = {}
-        for nome in nomes:
-            ids = indice.get(_normalizar(nome), set())
-            saida[nome] = next(iter(ids)) if len(ids) == 1 else None
-        return saida
+        self._usuarios = (agora, indice)
+        return indice
+
+    def _call_com_retentativa(self, method: str, tentativas: int = 3, **params: Any) -> dict:
+        """Leituras grandes às vezes chegam cortadas (IncompleteRead): tenta de novo."""
+        for tentativa in range(1, tentativas + 1):
+            try:
+                return self._client.call(method, **params)
+            except FalhaNaFonte:
+                if tentativa == tentativas:
+                    raise
+                time.sleep(tentativa)
+        raise AssertionError("inalcançável")
 
     def _canais_por_nome(self) -> dict[str, dict[str, str]]:
         canais: dict[str, dict[str, str]] = {}

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { api, type Papel, type Pessoa } from "../api/client";
+import { AgendamentoRelatorio } from "../components/AgendamentoRelatorio";
 import { Alerta, Check, Lixeira, Mais, Traco, Voltar } from "../icons";
 import { PAPEL } from "../labels";
 
@@ -266,6 +267,13 @@ export function Configuracoes() {
             <p className="painel-texto painel-texto-baixo">{slack.data.motivo}</p>
           )}
         </section>
+
+        <AgendamentoRelatorio
+          canal={(() => {
+            const c = projeto.data?.canais_slack.find((x) => x.id);
+            return c?.nome ? `#${c.nome}` : "o canal do projeto";
+          })()}
+        />
 
         <section aria-labelledby="p3" className="painel">
           <h2 id="p3">Pessoas envolvidas</h2>

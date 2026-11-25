@@ -2,7 +2,7 @@
 
 Separado das fontes, que só leem. Por decisão do time (25/11), usa o token de
 USUÁRIO (SLACK_USER_TOKEN): a mensagem sai em nome de quem é dono do token.
-Só sabe fazer duas coisas: postar no canal do relatório e responder na thread dela.
+Só sabe fazer uma coisa: postar mensagens no canal do relatório (nunca em thread).
 """
 
 import os
@@ -28,25 +28,24 @@ def _limitar(texto: str) -> str:
 
 
 def publicar(canal: str, mensagens: list[str]) -> tuple[str, str | None]:
-    """Posta a primeira mensagem no canal e cada uma das demais como UMA resposta na
-    thread dela (uma por responsável; nada é quebrado em várias respostas).
+    """Posta cada mensagem no canal, como mensagens independentes e nesta ordem:
+    o resumo e depois uma por responsável. Nenhuma vai em thread: a thread de cada
+    mensagem fica livre para o grupo discutir aquele assunto.
 
-    Devolve (ts da mensagem principal, link para ela).
+    Devolve (ts do resumo, link para ele).
     """
     client = _client()
     blocos = [_limitar(m.strip()) for m in mensagens if m.strip()]
     if not blocos:
         raise FalhaNaFonte("Relatório vazio: nada para publicar.")
     try:
-        principal = client.chat_postMessage(
-            channel=canal, text=blocos[0], unfurl_links=False, unfurl_media=False
-        )
-        ts = principal["ts"]
-        for resposta in blocos[1:]:
+        enviadas = [
             client.chat_postMessage(
-                channel=canal, thread_ts=ts, text=resposta, unfurl_links=False, unfurl_media=False
-            )
-        link = client.chat_getPermalink(channel=canal, message_ts=ts).get("permalink")
+                channel=canal, text=bloco, unfurl_links=False, unfurl_media=False
+            )["ts"]
+            for bloco in blocos
+        ]
+        link = client.chat_getPermalink(channel=canal, message_ts=enviadas[0]).get("permalink")
     except SlackApiError as exc:
         raise FalhaNaFonte(f"Slack recusou a publicação: {exc.response.get('error')}.") from exc
-    return ts, link
+    return enviadas[0], link

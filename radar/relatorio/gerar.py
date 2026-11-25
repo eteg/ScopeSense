@@ -185,7 +185,7 @@ def montar_prompt(
     )
     user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" (a pasta do projeto) aqui são os arquivos enviados na tela de Configurações e os PDFs anexados aos e-mails do projeto (o contrato pode estar entre eles; cite o link do e-mail de origem). Use só estes dados; não invente links (use os que vierem nos registros).
 
-Responda SOMENTE com as mensagens do Slack (mrkdwn), sem comentários antes ou depois: primeiro a mensagem principal; depois, para cada responsável com algo a fazer, uma linha com o marcador do papel (<<<PARA:gestor>>>, <<<PARA:comercial>>> ou <<<PARA:administrativo_contratos>>>) seguida da mensagem dele, começando pela marcação <@ID>. Uma mensagem por papel.
+Responda SOMENTE com as mensagens do Slack (mrkdwn), sem comentários antes ou depois: primeiro a mensagem de resumo; depois, para cada responsável com algo a fazer, uma linha com o marcador do papel (<<<PARA:gestor>>>, <<<PARA:comercial>>> ou <<<PARA:administrativo_contratos>>>) seguida da mensagem dele, começando pela marcação <@ID>. Uma mensagem por papel. Todas vão para o canal como mensagens separadas, então cada uma precisa se entender sozinha.
 
 Pessoas cadastradas no setup e o ID do Slack para marcar (use EXATAMENTE estes IDs; não marque mais ninguém):
 {ids or "(ninguém cadastrado)"}
@@ -249,7 +249,7 @@ _AVISO_GERAL = re.compile(r"<!(channel|here|everyone)>")
 
 @dataclass
 class Parte:
-    papel: Papel | None  # None = mensagem principal
+    papel: Papel | None  # None = mensagem de resumo
     texto: str
 
 

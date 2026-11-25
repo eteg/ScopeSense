@@ -5,6 +5,8 @@ no Slack (radar/relatorio/slack_saida.py, token de usuário).
 """
 
 from datetime import datetime, timedelta
+import re
+from collections.abc import Callable
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -19,10 +21,16 @@ from radar.api.deps import (
     config_atual,
     nome_do_projeto,
 )
-from radar.core.errors import Conflito, EntradaInvalida, FonteNaoConfigurada, NaoEncontrado
-from radar.core.models import Origem
+from radar.core.errors import (
+    Conflito,
+    EntradaInvalida,
+    FonteNaoConfigurada,
+    NaoEncontrado,
+    RadarError,
+)
+from radar.core.models import Consulta, Origem
 from radar.fontes.slack import SlackFonte
-from radar.relatorio import gerar, slack_saida
+from radar.relatorio import gerar, slack_saida, tarefas
 
 router = APIRouter(prefix="/relatorios", tags=["relatorios"])
 FUSO = ZoneInfo("America/Sao_Paulo")
@@ -43,7 +51,7 @@ class PessoaMarcada(BaseModel):
 
 
 class Mensagem(BaseModel):
-    papel: str | None  # None = mensagem principal (vai para o canal)
+    papel: str | None  # None = resumo; todas vão para o canal como mensagens separadas
     para: str | None  # nome da pessoa do papel, se cadastrada
     texto: str
 
@@ -53,7 +61,7 @@ class Relatorio(BaseModel):
     criado_em: str
     desde: str
     ate: str
-    mensagens: list[Mensagem]  # a principal e uma resposta na thread por responsável
+    mensagens: list[Mensagem]  # o resumo e uma mensagem no canal por responsável
     canal_id: str | None
     canal_nome: str | None
     fontes: dict
@@ -98,14 +106,24 @@ def _montar(dados: dict) -> Relatorio:
     )
 
 
-@router.post("")
-def gerar_relatorio(
-    pedido: GerarPedido,
-    registry: RegistryDep,
-    projeto_json: ProjetoJsonDep,
-    store: ProjetoStoreDep,
-) -> Relatorio:
-    """Lê o período, chama o modelo e guarda o rascunho (leva de 30 s a 1 min)."""
+Etapa = Callable[[str, str, str | None], None]  # (chave, status, detalhe)
+
+
+def _sem_progresso(_chave: str, _status: str, _detalhe: str | None) -> None:
+    return None
+
+
+def _plural(n: int, um: str, varios: str) -> str:
+    return f"{n} {um if n == 1 else varios}"
+
+
+def executar(
+    dias: int, registry, projeto_json: dict, store, etapa: Etapa = _sem_progresso
+) -> int:
+    """Gera o relatório avisando cada etapa: (chave, "andamento"|"ok"|"erro", detalhe).
+
+    Chaves: slack, gmail, contrato, pessoas, analise. Devolve o id do relatório salvo.
+    """
     projeto = nome_do_projeto(projeto_json)
     cfg = config_atual(projeto_json, store, registry)
     canal = next((c for c in cfg.canais_slack if c.id), None)
@@ -116,25 +134,84 @@ def gerar_relatorio(
     except FonteNaoConfigurada as exc:
         raise FonteNaoConfigurada(f"Slack não configurado: {exc}") from exc
 
-    nomes = [p.nome for p in cfg.pessoas]
-    ids = slack.ids_por_nome(nomes) if nomes else {}
-    pessoas = [gerar.Pessoa(p.nome, p.papel, ids.get(p.nome)) for p in cfg.pessoas]
-    canal_nome = canal.nome or next(
-        (c["nome"] for c in slack.list_channels() if c["id"] == canal.id), canal.id
-    )
-
     ate = datetime.now(FUSO)
-    desde = ate - timedelta(days=pedido.dias)
+    desde = ate - timedelta(days=dias)
+    consulta = Consulta(desde=desde, ate=ate, limite=1000)
+    coleta = gerar.Coleta()
+
+    # 1. Slack
+    etapa("slack", "andamento", "Conectando ao Slack…")
+    canal_nome = canal.nome
+    if not canal_nome:  # descobre uma vez e guarda: a próxima geração não consulta de novo
+        canal_nome = next(
+            (c["nome"] for c in slack.list_channels() if c["id"] == canal.id), canal.id
+        )
+        canal.nome = canal_nome
+        store.salvar_config(projeto, cfg)
+    etapa("slack", "andamento", f"Lendo as conversas de #{canal_nome}")
+    try:
+        coleta.slack = slack.fetch(consulta)
+        n = coleta.contagem()
+        etapa("slack", "ok", f"{_plural(n['mensagens_slack'], 'mensagem', 'mensagens')} em "
+              f"{_plural(n['threads_slack'], 'conversa', 'conversas')} de #{canal_nome}")  # fmt: skip
+    except RadarError as exc:
+        coleta.avisos.append(f"Slack não foi lido: {exc}")
+        etapa("slack", "erro", str(exc))
+
+    # 2. Gmail
+    etapa("gmail", "andamento", "Lendo os e-mails do projeto")
+    try:
+        coleta.emails = registry.get(Origem.email).fetch(consulta)
+        com_anexo = sum(1 for r in coleta.emails if r.metadados.get("anexos"))
+        detalhe = _plural(len(coleta.emails), "e-mail do projeto", "e-mails do projeto")
+        etapa("gmail", "ok", detalhe + (f" ({com_anexo} com anexo)" if com_anexo else ""))
+    except RadarError as exc:
+        coleta.avisos.append(f"Gmail não foi lido: {exc}")
+        etapa("gmail", "erro", str(exc))
+
+    # 3. Contrato: PDFs anexados aos e-mails + enviados nas Configurações
+    etapa("contrato", "andamento", "Procurando o contrato nos anexos dos e-mails")
     anexos, avisos_anexos = gerar.anexos_do_gmail(registry)
-    coleta = gerar.coletar(registry, desde, ate, store.textos_dos_arquivos(projeto) + anexos)
+    enviados = store.textos_dos_arquivos(projeto)
+    coleta.arquivos = enviados + anexos
     coleta.anexos_gmail = len(anexos)
     coleta.avisos.extend(avisos_anexos)
+    contratos = [nome.split(" (anexo")[0] for nome, tipo, _ in coleta.arquivos if tipo == "Contrato"]
+    if coleta.arquivos:
+        partes = []
+        if contratos:
+            partes.append(_plural(len(contratos), "contrato", "contratos") + f" ({', '.join(contratos)})")
+        outros = len(coleta.arquivos) - len(contratos)
+        if outros:
+            partes.append(_plural(outros, "outro documento", "outros documentos"))
+        etapa("contrato", "ok", " e ".join(partes))
+    else:
+        etapa("contrato", "erro", "Nenhum contrato encontrado: o relatório vai pedir o documento")
+
+    # 4. Responsáveis
+    etapa("pessoas", "andamento", "Encontrando os responsáveis no Slack")
+    nomes = [p.nome for p in cfg.pessoas]
+    try:
+        ids = slack.ids_por_nome(nomes) if nomes else {}
+        falha = None
+    except RadarError as exc:  # segue sem marcar: os nomes saem em negrito
+        ids, falha = {}, str(exc)
+        coleta.avisos.append(f"Não consegui buscar as pessoas no Slack: {exc}")
+    pessoas = [gerar.Pessoa(p.nome, p.papel, ids.get(p.nome)) for p in cfg.pessoas]
+    achados = [p.nome for p in pessoas if p.slack_id]
+    if falha:
+        etapa("pessoas", "erro", "O Slack não respondeu a tempo: o relatório sai sem marcar ninguém")
+    elif pessoas:
+        etapa("pessoas", "ok", ", ".join(achados) if achados else "Ninguém encontrado no Slack")
+    else:
+        etapa("pessoas", "erro", "Ninguém cadastrado nas Configurações")
+
+    # 5. Análise com o modelo
     try:
         gmail = registry.get(Origem.email).settings  # type: ignore[attr-defined]
         dominios = ", ".join(gmail.client_contacts + gmail.client_domains)
     except FonteNaoConfigurada:
         dominios = ""
-
     system, user = gerar.montar_prompt(
         projeto=projeto,
         cliente=(projeto_json.get("projeto") or {}).get("cliente"),
@@ -146,7 +223,13 @@ def gerar_relatorio(
         ate=ate,
         coleta=coleta,
     )
+    etapa("analise", "andamento", "Cruzando o contrato com as conversas e escrevendo o relatório")
     texto = gerar.limpar_saida(gerar.chamar_modelo(system, user), pessoas)
+    resumo = gerar.separar(texto)[0].texto if texto else ""
+    contagem = {cor: re.search(rf"{cor}\s*(\d+)", resumo) for cor in ("🔴", "🟠", "🟡")}
+    pontos = [f"{cor} {m.group(1)}" for cor, m in contagem.items() if m]
+    etapa("analise", "ok", "Relatório pronto" + (f": {' · '.join(pontos)}" if pontos else ""))
+
     fontes = {
         "contagem": coleta.contagem(),
         "avisos": coleta.avisos,
@@ -155,9 +238,60 @@ def gerar_relatorio(
             {"nome": p.nome, "papel": p.papel.value, "slack_id": p.slack_id} for p in pessoas
         ],
     }
-    caminho = _caminho()
-    relatorio_id = db.salvar_relatorio(desde, ate, texto, fontes, canal.id, caminho=caminho)
-    return _montar(db.obter_relatorio(relatorio_id, caminho=caminho))
+    return db.salvar_relatorio(desde, ate, texto, fontes, canal.id, caminho=_caminho())
+
+
+@router.post("")
+def gerar_relatorio(
+    pedido: GerarPedido,
+    registry: RegistryDep,
+    projeto_json: ProjetoJsonDep,
+    store: ProjetoStoreDep,
+) -> Relatorio:
+    """Gera e só responde no fim (1 a 2 min). A tela usa /relatorios/tarefas."""
+    relatorio_id = executar(pedido.dias, registry, projeto_json, store)
+    return _montar(db.obter_relatorio(relatorio_id, caminho=_caminho()))
+
+
+class EtapaTela(BaseModel):
+    chave: str
+    titulo: str
+    status: str  # pendente | andamento | ok | erro
+    detalhe: str | None
+
+
+class TarefaTela(BaseModel):
+    id: str
+    etapas: list[EtapaTela]
+    concluida: bool
+    erro: str | None
+    relatorio: Relatorio | None = None
+
+
+@router.post("/tarefas")
+def iniciar_geracao(
+    pedido: GerarPedido,
+    registry: RegistryDep,
+    projeto_json: ProjetoJsonDep,
+    store: ProjetoStoreDep,
+) -> TarefaTela:
+    """Começa a gerar em segundo plano. A tela acompanha por GET /relatorios/tarefas/{id}."""
+    tarefa = tarefas.iniciar(
+        lambda etapa: executar(pedido.dias, registry, projeto_json, store, etapa)
+    )
+    return TarefaTela(**tarefa.para_dict())
+
+
+@router.get("/tarefas/{tarefa_id}")
+def acompanhar_geracao(tarefa_id: str) -> TarefaTela:
+    """Etapas (o que está sendo lido e o que foi achado) e, no fim, o relatório."""
+    tarefa = tarefas.obter(tarefa_id)
+    if tarefa is None:
+        raise NaoEncontrado("Essa geração não existe mais (a API reiniciou?). Gere de novo.")
+    dados = tarefa.para_dict()
+    if tarefa.relatorio_id is not None:
+        dados["relatorio"] = _montar(db.obter_relatorio(tarefa.relatorio_id, caminho=_caminho()))
+    return TarefaTela(**dados)
 
 
 @router.get("/{relatorio_id}")
@@ -170,7 +304,7 @@ def obter(relatorio_id: int) -> Relatorio:
 
 @router.post("/{relatorio_id}/publicar")
 def publicar(relatorio_id: int, pedido: PublicarPedido) -> Relatorio:
-    """Posta no canal do projeto (principal + respostas na thread). Uma vez só."""
+    """Posta no canal do projeto: o resumo e uma mensagem por responsável. Uma vez só."""
     caminho = _caminho()
     dados = db.obter_relatorio(relatorio_id, caminho=caminho)
     if dados is None:

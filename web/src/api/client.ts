@@ -15,6 +15,8 @@ export type SlackConexao = S["SlackConexao"];
 export type ConfigPedido = S["ConfigPedido"];
 export type AcaoDecisao = S["DecisaoPedido"]["acao"];
 export type Relatorio = S["Relatorio"];
+export type TarefaRelatorio = S["TarefaTela"];
+export type EtapaRelatorio = S["EtapaTela"];
 
 export class ApiError extends Error {
   constructor(
@@ -59,8 +61,9 @@ export const api = {
     request<Alerta>(`/alertas/${id(alertaId)}/decisao?quem=${encodeURIComponent(quem)}`, {
       method: "DELETE",
     }),
-  gerarRelatorio: (dias: number) =>
-    request<Relatorio>("/relatorios", { method: "POST", body: JSON.stringify({ dias }) }),
+  iniciarRelatorio: (dias: number) =>
+    request<TarefaRelatorio>("/relatorios/tarefas", { method: "POST", body: JSON.stringify({ dias }) }),
+  tarefaRelatorio: (id: string) => request<TarefaRelatorio>(`/relatorios/tarefas/${encodeURIComponent(id)}`),
   publicarRelatorio: (relatorioId: number, quem: string) =>
     request<Relatorio>(`/relatorios/${relatorioId}/publicar`, {
       method: "POST",

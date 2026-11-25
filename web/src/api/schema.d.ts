@@ -454,9 +454,49 @@ export interface paths {
         put?: never;
         /**
          * Gerar Relatorio
-         * @description Lê o período, chama o modelo e guarda o rascunho (leva de 30 s a 1 min).
+         * @description Gera e só responde no fim (1 a 2 min). A tela usa /relatorios/tarefas.
          */
         post: operations["gerar_relatorio_relatorios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/relatorios/tarefas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Iniciar Geracao
+         * @description Começa a gerar em segundo plano. A tela acompanha por GET /relatorios/tarefas/{id}.
+         */
+        post: operations["iniciar_geracao_relatorios_tarefas_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/relatorios/tarefas/{tarefa_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Acompanhar Geracao
+         * @description Etapas (o que está sendo lido e o que foi achado) e, no fim, o relatório.
+         */
+        get: operations["acompanhar_geracao_relatorios_tarefas__tarefa_id__get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -491,7 +531,7 @@ export interface paths {
         put?: never;
         /**
          * Publicar
-         * @description Posta no canal do projeto (principal + respostas na thread). Uma vez só.
+         * @description Posta no canal do projeto: o resumo e uma mensagem por responsável. Uma vez só.
          */
         post: operations["publicar_relatorios__relatorio_id__publicar_post"];
         delete?: never;
@@ -609,6 +649,17 @@ export interface components {
             acao: "aprovar" | "descartar" | "nao_e_desvio";
             /** Quem */
             quem: string;
+        };
+        /** EtapaTela */
+        EtapaTela: {
+            /** Chave */
+            chave: string;
+            /** Titulo */
+            titulo: string;
+            /** Status */
+            status: string;
+            /** Detalhe */
+            detalhe: string | null;
         };
         /** Evidencia */
         Evidencia: {
@@ -779,6 +830,18 @@ export interface components {
             workspace?: string | null;
             /** Motivo */
             motivo?: string | null;
+        };
+        /** TarefaTela */
+        TarefaTela: {
+            /** Id */
+            id: string;
+            /** Etapas */
+            etapas: components["schemas"]["EtapaTela"][];
+            /** Concluida */
+            concluida: boolean;
+            /** Erro */
+            erro: string | null;
+            relatorio?: components["schemas"]["Relatorio"] | null;
         };
         /**
          * TipoDesvio
@@ -1506,6 +1569,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Relatorio"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    iniciar_geracao_relatorios_tarefas_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GerarPedido"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TarefaTela"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    acompanhar_geracao_relatorios_tarefas__tarefa_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tarefa_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TarefaTela"];
                 };
             };
             /** @description Validation Error */

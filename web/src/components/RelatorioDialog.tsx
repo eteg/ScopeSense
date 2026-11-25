@@ -1,10 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { api, type Relatorio } from "../api/client";
+import { api, type Relatorio, type TarefaRelatorio } from "../api/client";
 import type { PedirNome } from "../App";
 import { PAPEL } from "../labels";
 import { Mrkdwn } from "../mrkdwn";
+import { ProgressoRelatorio } from "./ProgressoRelatorio";
 
 type Props = { aberto: boolean; onFechar: () => void; nome: string; pedirNome: PedirNome };
 
@@ -23,13 +24,65 @@ const ROTULO_FONTE: Record<string, string> = {
   anexos_gmail: "PDFs anexados aos e-mails",
 };
 
+/** Inicia a geração em segundo plano e acompanha as etapas a cada segundo. */
+function useGeracao(dias: number, onPronto: (r: Relatorio) => void) {
+  const [tarefa, setTarefa] = useState<TarefaRelatorio | null>(null);
+  const [rodando, setRodando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const pronto = useRef(onPronto);
+  pronto.current = onPronto;
+
+  useEffect(() => {
+    if (!tarefa || tarefa.concluida) return;
+    const id = tarefa.id;
+    const t = setInterval(async () => {
+      try {
+        const atual = await api.tarefaRelatorio(id);
+        setTarefa(atual);
+        if (atual.concluida) {
+          setRodando(false);
+          if (atual.relatorio) pronto.current(atual.relatorio);
+          else setErro(atual.erro ?? "A geração falhou.");
+        }
+      } catch (e) {
+        setRodando(false);
+        setErro(e instanceof Error ? e.message : String(e));
+      }
+    }, 1000);
+    return () => clearInterval(t);
+  }, [tarefa]);
+
+  return {
+    isPending: rodando,
+    isError: erro !== null,
+    error: { message: erro ?? "" },
+    etapas: tarefa?.etapas ?? null,
+    mutate: () => {
+      setErro(null);
+      setRodando(true);
+      api
+        .iniciarRelatorio(dias)
+        .then(setTarefa)
+        .catch((e: unknown) => {
+          setRodando(false);
+          setErro(e instanceof Error ? e.message : String(e));
+        });
+    },
+    reset: () => {
+      setTarefa(null);
+      setErro(null);
+      setRodando(false);
+    },
+  };
+}
+
 /** Gerar relatório → revisar a prévia → publicar no canal do projeto. */
 export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
   const ref = useRef<HTMLDialogElement>(null);
   const [dias, setDias] = useState(7);
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
 
-  const gerar = useMutation({ mutationFn: () => api.gerarRelatorio(dias), onSuccess: setRelatorio });
+  const gerar = useGeracao(dias, setRelatorio);
   const publicar = useMutation({
     mutationFn: (quem: string) => api.publicarRelatorio(relatorio!.id, quem),
     onSuccess: setRelatorio,
@@ -77,7 +130,11 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
           </p>
           <label className="campo campo-contorno-azul">
             <span>Período</span>
-            <select value={dias} onChange={(e) => setDias(Number(e.target.value))}>
+            <select
+              value={dias}
+              disabled={gerar.isPending}
+              onChange={(e) => setDias(Number(e.target.value))}
+            >
               {PERIODOS.map((p) => (
                 <option key={p.dias} value={p.dias}>
                   {p.rotulo}
@@ -85,10 +142,14 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
               ))}
             </select>
           </label>
-          {gerar.isPending && (
-            <p className="carregando" role="status">
-              Lendo o Slack, os e-mails e o contrato e escrevendo o relatório… leva de 1 a 2 minutos.
-            </p>
+          {gerar.etapas && (
+            <ProgressoRelatorio
+              etapas={
+                gerar.isError
+                  ? gerar.etapas.map((e) => (e.status === "andamento" ? { ...e, status: "erro" } : e))
+                  : gerar.etapas
+              }
+            />
           )}
           {gerar.isError && (
             <p className="erro" role="alert">
@@ -142,8 +203,8 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
               <div key={i} className="rel-mensagem">
                 <div className="rel-thread">
                   {m.papel
-                    ? `Resposta na thread · para ${m.para ?? "(ninguém cadastrado)"} · ${PAPEL[m.papel as keyof typeof PAPEL] ?? m.papel}`
-                    : `Mensagem principal no canal ${canal}`}
+                    ? `Mensagem ${i + 1} no canal ${canal} · para ${m.para ?? "(ninguém cadastrado)"} · ${PAPEL[m.papel as keyof typeof PAPEL] ?? m.papel}`
+                    : `Mensagem ${i + 1} no canal ${canal} · resumo`}
                 </div>
                 <Mrkdwn texto={m.texto} nomes={nomes} />
               </div>
