@@ -438,3 +438,13 @@ def marcar_relatorio_publicado(
             "slack_link = ? WHERE id = ?",
             (_iso(datetime.now(FUSO)), por, slack_ts, slack_link, relatorio_id),
         )
+
+
+def listar_relatorios(*, caminho: str | Path | None = None) -> list[dict]:
+    """Relatórios do mais novo para o mais antigo (sem o texto)."""
+    with _sessao(caminho) as con:
+        linhas = con.execute(
+            "SELECT id, criado_em, desde, ate, fontes, publicado_em, publicado_por "
+            "FROM relatorios ORDER BY id DESC"
+        ).fetchall()
+    return [{**dict(r), "fontes": json.loads(r["fontes"])} for r in linhas]

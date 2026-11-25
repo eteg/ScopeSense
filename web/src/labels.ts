@@ -65,3 +65,12 @@ export function pessoaDoAlerta(alerta: Alerta, pessoas: Partial<Record<Papel, st
 }
 
 export const porcento = (x: number) => `${Math.round(x * 100)}%`;
+
+const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
+const milhar = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 });
+
+export const reais = (v: number) => brl.format(v);
+export const dolares = (v: number) => usd.format(v);
+/** 15234 -> "15,2 mil" */
+export const tokens = (n: number) => (n >= 1000 ? `${milhar.format(n / 1000)} mil` : String(n));

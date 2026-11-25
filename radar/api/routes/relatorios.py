@@ -56,6 +56,23 @@ class Mensagem(BaseModel):
     texto: str
 
 
+class Tokens(BaseModel):
+    entrada: int
+    saida: int
+    raciocinio: int
+    cache_leitura: int
+    cache_escrita: int
+
+
+class Custo(BaseModel):
+    modelo: str
+    tokens: Tokens
+    usd: float | None
+    brl: float | None
+    cotacao_usd_brl: float
+    cotacao_origem: str
+
+
 class Relatorio(BaseModel):
     id: int
     criado_em: str
@@ -70,6 +87,7 @@ class Relatorio(BaseModel):
     publicado_em: str | None
     publicado_por: str | None
     slack_link: str | None
+    custo: Custo | None = None  # relatórios gerados antes do cálculo não têm
 
 
 def _caminho() -> str:
@@ -103,6 +121,7 @@ def _montar(dados: dict) -> Relatorio:
         publicado_em=dados["publicado_em"],
         publicado_por=dados["publicado_por"],
         slack_link=dados["slack_link"],
+        custo=fontes.get("custo"),
     )
 
 
@@ -111,6 +130,10 @@ Etapa = Callable[[str, str, str | None], None]  # (chave, status, detalhe)
 
 def _sem_progresso(_chave: str, _status: str, _detalhe: str | None) -> None:
     return None
+
+
+def _reais(valor: float) -> str:
+    return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def _plural(n: int, um: str, varios: str) -> str:
@@ -224,16 +247,19 @@ def executar(
         coleta=coleta,
     )
     etapa("analise", "andamento", "Cruzando o contrato com as conversas e escrevendo o relatório")
-    texto = gerar.limpar_saida(gerar.chamar_modelo(system, user), pessoas)
+    bruto, gasto = gerar.chamar_modelo(system, user)
+    texto = gerar.limpar_saida(bruto, pessoas)
     resumo = gerar.separar(texto)[0].texto if texto else ""
     contagem = {cor: re.search(rf"{cor}\s*(\d+)", resumo) for cor in ("🔴", "🟠", "🟡")}
     pontos = [f"{cor} {m.group(1)}" for cor, m in contagem.items() if m]
-    etapa("analise", "ok", "Relatório pronto" + (f": {' · '.join(pontos)}" if pontos else ""))
+    preco = f" · custou {_reais(gasto['brl'])}" if gasto.get("brl") is not None else ""
+    etapa("analise", "ok", "Relatório pronto" + (f": {' · '.join(pontos)}" if pontos else "") + preco)
 
     fontes = {
         "contagem": coleta.contagem(),
         "avisos": coleta.avisos,
         "canal_nome": canal_nome,
+        "custo": gasto,
         "pessoas": [
             {"nome": p.nome, "papel": p.papel.value, "slack_id": p.slack_id} for p in pessoas
         ],
@@ -251,6 +277,40 @@ def gerar_relatorio(
     """Gera e só responde no fim (1 a 2 min). A tela usa /relatorios/tarefas."""
     relatorio_id = executar(pedido.dias, registry, projeto_json, store)
     return _montar(db.obter_relatorio(relatorio_id, caminho=_caminho()))
+
+
+class ResumoRelatorio(BaseModel):
+    id: int
+    criado_em: str
+    desde: str
+    ate: str
+    publicado_em: str | None
+    publicado_por: str | None
+    custo: Custo | None
+
+
+class ListaRelatorios(BaseModel):
+    relatorios: list[ResumoRelatorio]
+    total_usd: float
+    total_brl: float
+    sem_custo: int  # gerados antes do cálculo de custo
+
+
+@router.get("")
+def listar() -> ListaRelatorios:
+    """Relatórios gerados, do mais novo ao mais antigo, com o custo de cada um e o total."""
+    itens = [
+        ResumoRelatorio(**{k: r[k] for k in ResumoRelatorio.model_fields if k != "custo"},
+                        custo=r["fontes"].get("custo"))  # fmt: skip
+        for r in db.listar_relatorios(caminho=_caminho())
+    ]
+    com_custo = [i.custo for i in itens if i.custo and i.custo.usd is not None]
+    return ListaRelatorios(
+        relatorios=itens,
+        total_usd=round(sum(c.usd for c in com_custo), 6),
+        total_brl=round(sum(c.brl or 0 for c in com_custo), 4),
+        sem_custo=len(itens) - len(com_custo),
+    )
 
 
 class EtapaTela(BaseModel):

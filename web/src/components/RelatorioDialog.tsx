@@ -1,9 +1,9 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
 import { api, type Relatorio, type TarefaRelatorio } from "../api/client";
 import type { PedirNome } from "../App";
-import { PAPEL } from "../labels";
+import { dolares, PAPEL, reais, tokens } from "../labels";
 import { Mrkdwn } from "../mrkdwn";
 import { ProgressoRelatorio } from "./ProgressoRelatorio";
 
@@ -82,7 +82,12 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
   const [dias, setDias] = useState(7);
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
 
-  const gerar = useGeracao(dias, setRelatorio);
+  const qc = useQueryClient();
+  const historico = useQuery({ queryKey: ["relatorios"], queryFn: api.relatorios, enabled: aberto });
+  const gerar = useGeracao(dias, (r) => {
+    setRelatorio(r);
+    qc.invalidateQueries({ queryKey: ["relatorios"] });
+  });
   const publicar = useMutation({
     mutationFn: (quem: string) => api.publicarRelatorio(relatorio!.id, quem),
     onSuccess: setRelatorio,
@@ -156,6 +161,19 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
               {gerar.error.message}
             </p>
           )}
+          {historico.data && historico.data.relatorios.length > 0 && (
+            <p className="rel-gasto">
+              Até agora: {historico.data.relatorios.length}{" "}
+              {historico.data.relatorios.length === 1 ? "relatório gerado" : "relatórios gerados"}
+              {historico.data.total_brl > 0 && <> · {reais(historico.data.total_brl)} em IA</>}
+              {historico.data.sem_custo > 0 && (
+                <span className="aviso-suave">
+                  {" "}
+                  ({historico.data.sem_custo} sem custo registrado, gerados antes do cálculo)
+                </span>
+              )}
+            </p>
+          )}
           <div className="dialogo-acoes">
             <button type="button" className="btn btn-texto" onClick={fechar} disabled={gerar.isPending}>
               Cancelar
@@ -179,6 +197,20 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
               .map(([k, n]) => `${n} ${ROTULO_FONTE[k] ?? k}`)
               .join(" · ")}
           </p>
+          {relatorio.custo && relatorio.custo.brl !== null && relatorio.custo.usd !== null && (
+            <div className="rel-custo">
+              <span className="rel-custo-valor">
+                Custo desta geração: <b>{reais(relatorio.custo.brl)}</b>
+                <span className="aviso-suave"> ({dolares(relatorio.custo.usd)})</span>
+              </span>
+              <span className="rel-custo-detalhe">
+                {tokens(relatorio.custo.tokens.entrada)} tokens lidos ·{" "}
+                {tokens(relatorio.custo.tokens.saida)} escritos (
+                {tokens(relatorio.custo.tokens.raciocinio)} de raciocínio) · {relatorio.custo.modelo} · US$ 1 ={" "}
+                {reais(relatorio.custo.cotacao_usd_brl)} ({relatorio.custo.cotacao_origem})
+              </span>
+            </div>
+          )}
           {relatorio.avisos.map((a) => (
             <p key={a} className="erro erro-pequeno">
               {a}

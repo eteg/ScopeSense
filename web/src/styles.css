@@ -1409,3 +1409,32 @@ a.btn-icone:hover {
     animation-duration: 2.4s;
   }
 }
+
+/* --- custo do relatório ------------------------------------------------ */
+
+.rel-gasto {
+  margin: 16px 0 0;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.rel-custo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--caixa);
+}
+
+.rel-custo-valor b {
+  font-weight: 500;
+  color: var(--texto);
+}
+
+.rel-custo-detalhe {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--texto-suave);
+}

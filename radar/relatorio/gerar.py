@@ -13,7 +13,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from radar import config
+from radar import config, custo
 from radar.core.errors import FalhaNaFonte, FonteNaoConfigurada, RadarError
 from radar.core.models import Consulta, Origem, Papel, Registro
 from radar.llm import _get_client
@@ -207,7 +207,8 @@ Pessoas cadastradas no setup e o ID do Slack para marcar (use EXATAMENTE estes I
 # --- modelo e saída ----------------------------------------------------------------------
 
 
-def chamar_modelo(system: str, user: str) -> str:
+def chamar_modelo(system: str, user: str) -> tuple[str, dict]:
+    """(texto do relatório, custo da chamada: tokens, US$ e R$)."""
     if not os.environ.get("ANTHROPIC_API_KEY"):
         raise FonteNaoConfigurada(
             "Falta ANTHROPIC_API_KEY no .env: o relatório é escrito pelo modelo. "
@@ -240,7 +241,7 @@ def chamar_modelo(system: str, user: str) -> str:
         raise FalhaNaFonte(
             f"O modelo não devolveu texto (parou por {resposta.stop_reason}). Tente de novo."
         )
-    return texto
+    return texto, custo.calcular(config.MODELO_PRINCIPAL, resposta.usage)
 
 
 _MENCAO = re.compile(r"<@([A-Z0-9]+)(?:\|[^>]*)?>")

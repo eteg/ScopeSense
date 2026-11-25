@@ -450,7 +450,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Listar
+         * @description Relatórios gerados, do mais novo ao mais antigo, com o custo de cada um e o total.
+         */
+        get: operations["listar_relatorios_get"];
         put?: never;
         /**
          * Gerar Relatorio
@@ -623,6 +627,20 @@ export interface components {
             /** Pessoas */
             pessoas?: components["schemas"]["Pessoa"][];
         };
+        /** Custo */
+        Custo: {
+            /** Modelo */
+            modelo: string;
+            tokens: components["schemas"]["Tokens"];
+            /** Usd */
+            usd: number | null;
+            /** Brl */
+            brl: number | null;
+            /** Cotacao Usd Brl */
+            cotacao_usd_brl: number;
+            /** Cotacao Origem */
+            cotacao_origem: string;
+        };
         /** Decisao */
         Decisao: {
             /** Alerta Id */
@@ -694,6 +712,17 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /** ListaRelatorios */
+        ListaRelatorios: {
+            /** Relatorios */
+            relatorios: components["schemas"]["ResumoRelatorio"][];
+            /** Total Usd */
+            total_usd: number;
+            /** Total Brl */
+            total_brl: number;
+            /** Sem Custo */
+            sem_custo: number;
         };
         /** Mensagem */
         Mensagem: {
@@ -812,6 +841,7 @@ export interface components {
             publicado_por: string | null;
             /** Slack Link */
             slack_link: string | null;
+            custo?: components["schemas"]["Custo"] | null;
         };
         /** Resumo */
         Resumo: {
@@ -821,6 +851,22 @@ export interface components {
             };
             /** Ultimo Alerta Em */
             ultimo_alerta_em: string | null;
+        };
+        /** ResumoRelatorio */
+        ResumoRelatorio: {
+            /** Id */
+            id: number;
+            /** Criado Em */
+            criado_em: string;
+            /** Desde */
+            desde: string;
+            /** Ate */
+            ate: string;
+            /** Publicado Em */
+            publicado_em: string | null;
+            /** Publicado Por */
+            publicado_por: string | null;
+            custo: components["schemas"]["Custo"] | null;
         };
         /** SlackConexao */
         SlackConexao: {
@@ -848,6 +894,19 @@ export interface components {
          * @enum {string}
          */
         TipoDesvio: "escopo_extra" | "prazo_sla" | "terceiro_sem_documento" | "promessa_fora_do_contrato" | "nenhum";
+        /** Tokens */
+        Tokens: {
+            /** Entrada */
+            entrada: number;
+            /** Saida */
+            saida: number;
+            /** Raciocinio */
+            raciocinio: number;
+            /** Cache Leitura */
+            cache_leitura: number;
+            /** Cache Escrita */
+            cache_escrita: number;
+        };
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -1545,6 +1604,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_relatorios_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListaRelatorios"];
                 };
             };
         };

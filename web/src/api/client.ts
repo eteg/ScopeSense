@@ -16,6 +16,8 @@ export type ConfigPedido = S["ConfigPedido"];
 export type AcaoDecisao = S["DecisaoPedido"]["acao"];
 export type Relatorio = S["Relatorio"];
 export type TarefaRelatorio = S["TarefaTela"];
+export type Custo = S["Custo"];
+export type ListaRelatorios = S["ListaRelatorios"];
 export type EtapaRelatorio = S["EtapaTela"];
 
 export class ApiError extends Error {
@@ -61,6 +63,7 @@ export const api = {
     request<Alerta>(`/alertas/${id(alertaId)}/decisao?quem=${encodeURIComponent(quem)}`, {
       method: "DELETE",
     }),
+  relatorios: () => request<ListaRelatorios>("/relatorios"),
   iniciarRelatorio: (dias: number) =>
     request<TarefaRelatorio>("/relatorios/tarefas", { method: "POST", body: JSON.stringify({ dias }) }),
   tarefaRelatorio: (id: string) => request<TarefaRelatorio>(`/relatorios/tarefas/${encodeURIComponent(id)}`),
