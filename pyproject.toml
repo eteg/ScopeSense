@@ -42,6 +42,7 @@ include = ["radar*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = ["integracao: usa o modelo real (e5); é pulado se o download falhar"]
 
 [tool.ruff]
 line-length = 100
