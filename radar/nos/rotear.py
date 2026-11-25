@@ -2,18 +2,12 @@
 
 from collections.abc import Callable
 
-from radar import config
-from radar.core.models import Acao, Alerta, Papel, Registro, TipoDesvio
+from radar.core.models import Acao, Alerta, Registro
+from radar.roteamento import rotear_alerta  # R-05: regra oficial (papel por tipo, ação por confiança)
+
+__all__ = ["Notificador", "definir_notificador", "notificador_padrao", "rotear", "rotear_alerta"]
 
 Notificador = Callable[[Alerta, Registro], None]
-
-# TODO(R-05): trocar por `radar.roteamento.PAPEL_POR_TIPO` e `decidir_acao(alerta)`.
-_PAPEL_POR_TIPO: dict[TipoDesvio, Papel] = {
-    TipoDesvio.escopo_extra: Papel.gestor,
-    TipoDesvio.prazo_sla: Papel.comercial,
-    TipoDesvio.terceiro_sem_documento: Papel.administrativo_contratos,
-    TipoDesvio.promessa_fora_do_contrato: Papel.administrativo_contratos,
-}
 
 
 def notificador_padrao(alerta: Alerta, registro: Registro) -> None:
@@ -28,15 +22,6 @@ def definir_notificador(notificador: Notificador) -> None:
     """Guarda o notificador usado pelo nó. Quem expõe isso ao time é `grafo.configurar`."""
     global _notificador
     _notificador = notificador
-
-
-def rotear_alerta(alerta: Alerta) -> tuple[Alerta, Acao]:
-    """Função pura: preenche `responsavel` e decide a ação. Sem efeito colateral."""
-    # TODO(R-05): `decidir_acao` oficial. Aqui: >= LIMIAR_POSTAR posta, abaixo vira resumo.
-    responsavel = _PAPEL_POR_TIPO.get(alerta.tipo)
-    alerta = alerta.model_copy(update={"responsavel": responsavel})
-    acao = Acao.postar if alerta.confianca >= config.LIMIAR_POSTAR else Acao.resumo
-    return alerta, acao
 
 
 def rotear(estado: dict) -> dict:
