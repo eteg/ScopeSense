@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 from radar.core.errors import FalhaNaFonte
 from radar.core.models import Consulta, Origem, Registro
+from radar.fontes.slack_export import ler_export
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 
@@ -37,12 +38,20 @@ def _ler_vtt(caminho: Path) -> list[Registro]:
     return ler_vtt(caminho)
 
 
+def _ler_pdf(caminho: Path) -> list[Registro]:
+    """G-10: documentos do terceiro (import tardio, como o parser da reunião)."""
+    from radar.documentos import carregar_documentos, documentos_como_registros
+
+    docs = [d for d in carregar_documentos(caminho.parent) if d.arquivo == caminho.name]
+    return documentos_como_registros(docs)
+
+
 # Os outros devs só trocam a entrada (ex.: PARSERS["slack_export.json"] = parse_slack).
 PARSERS: dict[str, Parser] = {
-    "slack_export.json": _vazio,  # G-03
+    "slack_export.json": ler_export,  # G-03
     ".vtt": _ler_vtt,  # G-09
     ".eml": _vazio,  # G-14
-    ".pdf": _vazio,  # G-10
+    ".pdf": _ler_pdf,  # G-10
 }
 
 # Nunca viram evidência, mesmo que um dia exista um parser para a extensão.

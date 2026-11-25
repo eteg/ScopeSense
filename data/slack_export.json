@@ -1,0 +1,177 @@
+[
+  {
+    "ts": "1800273900.000100",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Bom dia, time! Semana de fechar a base de conhecimento, a entrega é dia 25. Alguém precisa de algo de mim pra destravar?",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800274920.000200",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "Bom dia! Eu confirmo com o cliente o horário da demo ainda hoje. O Marcos tinha falado em quinta de manhã.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800297000.000300",
+    "user": "U_CLIENTE_02",
+    "text": "Pessoal, conseguimos mudar a ordem das colunas na fila do módulo de atendimento? Hoje o status aparece só no fim da tela.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800298320.000400",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Dá sim, Patrícia! É só configuração da fila do módulo de atendimento, ajusto hoje e te aviso.",
+    "thread_ts": "1800297000.000300",
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800364320.000500",
+    "user": "U_CLIENTE_01",
+    "text": "Bom dia! Vocês conseguem incluir um módulo de relatórios com painéis de acompanhamento dos chamados? A diretoria quer ver os números toda semana.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800366060.000600",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "Oi Marcos! Claro, a gente faz, sem problema. Já deixo anotado pro time.",
+    "thread_ts": "1800364320.000500",
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800366240.000700",
+    "user": "U_CLIENTE_01",
+    "text": "Show, obrigado! Fico no aguardo.",
+    "thread_ts": "1800364320.000500",
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800448200.000800",
+    "user": "U_CLIENTE_01",
+    "text": "Sobre o módulo extra de integração com o estoque, que a gente combinou em dezembro: já podem começar?",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800449280.000900",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Oi Marcos, o aditivo do módulo de integração foi assinado, podemos seguir. Começamos na segunda.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800465300.001000",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Café da tarde por conta da casa hoje, quem passar na copa leva um pão de queijo :)",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800537600.001100",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Registrando aqui o que vocês já aprovaram por e-mail: a entrega da base de conhecimento passa de 25/01 para 28/01. O aceite formal do Marcos, com a nova data, chegou ontem à noite.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800538500.001200",
+    "user": "U_CLIENTE_01",
+    "text": "Confirmado, pode seguir com a nova data. Obrigado por registrar.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800562200.001300",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "A reunião de status foi boa, o cliente está animado com o portal. Depois eu passo os próximos passos.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800620100.001400",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Bom dia! Alguém viu se o ambiente de homologação voltou? Ontem à noite estava lento.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800621600.001500",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "Voltou sim, a infra reiniciou o serviço cedo hoje. Já está normal.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800645600.001600",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "Pessoal, um aviso: a integração com o CRM, que estava prevista para 29/01, só fica pronta em 12/02. Estamos ajustando o mapeamento dos cadastros e essa é a data realista.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800646260.001700",
+    "user": "U_CLIENTE_01",
+    "text": "Entendi, obrigado por avisar. Vamos nos organizar aqui.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1800877800.001800",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "<@U_PENDENTE_COMERCIAL> consegue me passar o resumo da reunião de quinta? Quero alinhar os próximos passos com a equipe.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800879000.001900",
+    "user": "U_PENDENTE_COMERCIAL",
+    "text": "Mando hoje até o fim da tarde, Helena.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1800964800.002000",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Pessoal, o João da Nimbus começa amanhã no cliente. Ele vai apoiar a equipe nos testes do portal.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1801055100.002100",
+    "user": "U_PENDENTE_CONTRATOS",
+    "text": "Lembrete: a próxima reunião de acompanhamento é dia 04/02, mando o convite ainda hoje.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1801155600.002200",
+    "user": "U_CLIENTE_02",
+    "text": "Vocês conseguem incluir também um aplicativo de celular para abrir chamados? Seria bem útil pros nossos técnicos de campo.",
+    "thread_ts": null,
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1801156920.002300",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Entendemos a necessidade, Patrícia, mas um aplicativo de celular não está no escopo do projeto. Se quiserem, mandamos um pedido formal de mudança com prazo e preço para vocês avaliarem.",
+    "thread_ts": "1801155600.002200",
+    "channel": "projeto-alfa-cliente"
+  },
+  {
+    "ts": "1801600200.002400",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "A Carla da Nimbus começa amanhã. Já deixei o acesso de homologação pedido pra ela.",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  },
+  {
+    "ts": "1801856700.002500",
+    "user": "U_PENDENTE_GESTOR",
+    "text": "Fechamos a semana com a integração em andamento. Bom fim de semana, time!",
+    "thread_ts": null,
+    "channel": "projeto-alfa"
+  }
+]
