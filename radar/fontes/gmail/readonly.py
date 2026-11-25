@@ -21,6 +21,8 @@ READ_ONLY_PATHS = (
     re.compile(r"^profile$"),
     re.compile(r"^messages$"),
     re.compile(r"^messages/[A-Za-z0-9_-]+$"),
+    # Conteúdo de um anexo (ex.: o contrato em PDF). Leitura, coberta por gmail.readonly.
+    re.compile(r"^messages/[A-Za-z0-9_-]+/attachments/[A-Za-z0-9_-]+$"),
     re.compile(r"^threads/[A-Za-z0-9_-]+$"),
     re.compile(r"^labels$"),
 )

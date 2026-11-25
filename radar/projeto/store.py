@@ -149,10 +149,11 @@ def _to_arquivo(row: sqlite3.Row) -> Arquivo:
     )
 
 
-def texto_do_pdf(caminho: str | Path, limite: int = 40_000) -> str:
-    """Texto de um PDF enviado (sem OCR: PDF escaneado sai vazio)."""
+def texto_do_pdf(caminho: str | Path | None = None, limite: int = 40_000, *, dados: bytes | None = None) -> str:
+    """Texto de um PDF, do disco ou dos bytes (sem OCR: PDF escaneado sai vazio)."""
     import pymupdf  # preguiçoso: a API sobe mesmo sem PyMuPDF
 
-    with pymupdf.open(caminho) as pdf:
+    pdf = pymupdf.open(stream=dados, filetype="pdf") if dados is not None else pymupdf.open(caminho)
+    with pdf:
         texto = "\n".join(pagina.get_text() for pagina in pdf)
     return texto[:limite]

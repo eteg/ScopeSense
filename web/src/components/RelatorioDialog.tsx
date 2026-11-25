@@ -19,7 +19,8 @@ const ROTULO_FONTE: Record<string, string> = {
   mensagens_slack: "mensagens no Slack",
   threads_slack: "threads",
   emails: "e-mails",
-  arquivos: "arquivos do projeto",
+  arquivos: "arquivos enviados",
+  anexos_gmail: "PDFs anexados aos e-mails",
 };
 
 /** Gerar relatório → revisar a prévia → publicar no canal do projeto. */
@@ -69,8 +70,9 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
       {!relatorio && (
         <>
           <p>
-            O Radar lê as threads do canal do projeto no Slack, os e-mails do projeto e os
-            arquivos enviados nas Configurações, e escreve o relatório de desvios e problemas.
+            O Radar lê as threads do canal do projeto no Slack, os e-mails do projeto, o contrato
+            (PDFs anexados aos e-mails e enviados nas Configurações) e escreve o relatório de
+            desvios e problemas.
             Você revisa antes de publicar.
           </p>
           <label className="campo campo-contorno-azul">
@@ -85,7 +87,7 @@ export function RelatorioDialog({ aberto, onFechar, nome, pedirNome }: Props) {
           </label>
           {gerar.isPending && (
             <p className="carregando" role="status">
-              Lendo o Slack e os e-mails e escrevendo o relatório… leva até 1 minuto.
+              Lendo o Slack, os e-mails e o contrato e escrevendo o relatório… leva de 1 a 2 minutos.
             </p>
           )}
           {gerar.isError && (

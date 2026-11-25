@@ -109,7 +109,10 @@ def gerar_relatorio(
 
     ate = datetime.now(FUSO)
     desde = ate - timedelta(days=pedido.dias)
-    coleta = gerar.coletar(registry, desde, ate, store.textos_dos_arquivos(projeto))
+    anexos, avisos_anexos = gerar.anexos_do_gmail(registry)
+    coleta = gerar.coletar(registry, desde, ate, store.textos_dos_arquivos(projeto) + anexos)
+    coleta.anexos_gmail = len(anexos)
+    coleta.avisos.extend(avisos_anexos)
     try:
         gmail = registry.get(Origem.email).settings  # type: ignore[attr-defined]
         dominios = ", ".join(gmail.client_contacts + gmail.client_domains)

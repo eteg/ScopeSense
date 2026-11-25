@@ -23,7 +23,8 @@ PROMPT = Path(__file__).with_name("prompt_sistema.md")
 SEPARADOR = "<<<RESPOSTA>>>"
 MAX_TEXTO_REGISTRO = 2000
 MAX_TEXTO_CONTRATO = 120_000
-MAX_TOKENS = 6000
+MAX_TOKENS = 16000  # o modelo pensa antes de escrever: precisa de folga
+ESFORCO = "medium"  # resumo de relatório, não problema difícil; pensa menos e responde mais rápido
 
 ROTULO_PAPEL = {
     Papel.gestor: "Gestor do projeto",
@@ -44,6 +45,7 @@ class Coleta:
     slack: list[Registro] = field(default_factory=list)
     emails: list[Registro] = field(default_factory=list)
     arquivos: list[tuple[str, str, str]] = field(default_factory=list)  # nome, tipo, texto
+    anexos_gmail: int = 0
     avisos: list[str] = field(default_factory=list)
 
     def contagem(self) -> dict[str, int]:
@@ -52,7 +54,8 @@ class Coleta:
             "mensagens_slack": len(self.slack),
             "threads_slack": len(threads),
             "emails": len(self.emails),
-            "arquivos": len(self.arquivos),
+            "arquivos": len(self.arquivos) - self.anexos_gmail,
+            "anexos_gmail": self.anexos_gmail,
         }
 
 
@@ -72,6 +75,29 @@ def coletar(registry, desde: datetime, ate: datetime, arquivos) -> Coleta:
         except RadarError as exc:  # uma fonte fora do ar não impede o relatório
             coleta.avisos.append(f"{nome} não foi lido: {exc}")
     return coleta
+
+
+def anexos_do_gmail(registry) -> tuple[list[tuple[str, str, str]], list[str]]:
+    """Contrato e documentos em PDF anexados aos e-mails do projeto (Gmail API, leitura).
+
+    O servidor MCP do Gmail não entrega conteúdo de anexo; por isso é a API REST.
+    """
+    from radar.projeto.store import texto_do_pdf, tipo_pelo_nome
+
+    try:
+        anexos = registry.get(Origem.email).anexos_pdf()
+    except RadarError as exc:
+        return [], [f"Anexos do Gmail não foram lidos: {exc}"]
+    saida, avisos = [], []
+    for a in anexos:
+        try:
+            texto = texto_do_pdf(dados=a["bytes"])
+        except Exception as exc:  # noqa: BLE001 - um PDF ruim não derruba o relatório
+            avisos.append(f"Não consegui ler {a['nome']}: {exc}")
+            continue
+        origem = f'anexo do e-mail "{a["assunto"]}", de {a["de"]}, {_quando(a["data"])}, {a["link"]}'
+        saida.append((f"{a['nome']} ({origem})", tipo_pelo_nome(a["nome"]), texto))
+    return saida, avisos
 
 
 # --- prompt ------------------------------------------------------------------------------
@@ -124,7 +150,7 @@ def montar_prompt(
         "NOME_CLIENTE": cliente or "(não informado)",
         "CANAL_SLACK": f"#{canal_nome}",
         "CANAL_SLACK_ID": canal_id,
-        "PASTA_DRIVE_NOME": "Arquivos do projeto (enviados na tela de Configurações)",
+        "PASTA_DRIVE_NOME": "Arquivos do projeto (Configurações + anexos dos e-mails do projeto)",
         "PASTA_DRIVE_ID": "arquivos-do-projeto",
         "DOMINIOS_EMAIL": dominios_email or "(não informado)",
         "DATA_INICIO": desde.astimezone(FUSO).strftime("%d/%m/%Y"),
@@ -156,7 +182,7 @@ def montar_prompt(
         + (f"<@{p.slack_id}>" if p.slack_id else "não encontrei no Slack")
         for p in pessoas
     )
-    user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" aqui são os arquivos enviados na tela de Configurações. Use só estes dados; não invente links (use os que vierem nos registros).
+    user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" (a pasta do projeto) aqui são os arquivos enviados na tela de Configurações e os PDFs anexados aos e-mails do projeto (o contrato pode estar entre eles; cite o link do e-mail de origem). Use só estes dados; não invente links (use os que vierem nos registros).
 
 Responda SOMENTE com o texto da mensagem do Slack (mrkdwn), sem comentários antes ou depois. Se o relatório passar de 3.500 caracteres, separe cada mensagem (a principal e cada resposta da thread) com uma linha contendo apenas {SEPARADOR}.
 
@@ -192,6 +218,7 @@ def chamar_modelo(system: str, user: str) -> str:
         resposta = _get_client().messages.create(
             model=config.MODELO_PRINCIPAL,
             max_tokens=MAX_TOKENS,
+            output_config={"effort": ESFORCO},
             system=system,
             messages=[{"role": "user", "content": user}],
         )
@@ -205,7 +232,14 @@ def chamar_modelo(system: str, user: str) -> str:
         raise FalhaNaFonte(f"O modelo recusou o pedido ({exc.status_code}): {detalhe or exc}") from exc
     except anthropic.APIError as exc:
         raise FalhaNaFonte(f"Falha ao falar com o modelo: {exc}") from exc
-    return "".join(b.text for b in resposta.content if getattr(b, "type", "") == "text").strip()
+    if resposta.stop_reason == "refusal":
+        raise FalhaNaFonte("O modelo recusou escrever o relatório. Tente outro período.")
+    texto = "".join(b.text for b in resposta.content if getattr(b, "type", "") == "text").strip()
+    if not texto:
+        raise FalhaNaFonte(
+            f"O modelo não devolveu texto (parou por {resposta.stop_reason}). Tente de novo."
+        )
+    return texto
 
 
 _MENCAO = re.compile(r"<@([A-Z0-9]+)(?:\|[^>]*)?>")

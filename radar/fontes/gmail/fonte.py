@@ -67,6 +67,42 @@ class GmailFonte:
             parts.append(f"before:{int(ate.timestamp())}")
         return " ".join(parts)
 
+    def anexos_pdf(self, limite: int = 10) -> list[dict[str, Any]]:
+        """PDFs anexados aos e-mails do PROJETO (mesmo filtro da busca), mais novos primeiro.
+
+        Sem filtro de data: o contrato costuma ser bem mais antigo que o período do
+        relatório. Cada item: nome, bytes, assunto, de, data e link da mensagem.
+        """
+        consulta = f"{self.build_query()} has:attachment filename:pdf"
+        ids = self._client.get("messages", q=consulta, maxResults=limite).get("messages", [])
+        anexos = []
+        for item in ids:
+            message = self._client.get(f"messages/{item['id']}", format="full")
+            if not self.belongs_to_project(message):
+                continue  # segunda checagem, como na busca de registros
+            headers = _headers(message)
+            for parte in _parts(message.get("payload") or {}):
+                corpo = parte.get("body") or {}
+                nome = parte.get("filename") or ""
+                if not corpo.get("attachmentId") or not nome.lower().endswith(".pdf"):
+                    continue
+                dados = self._client.get(
+                    f"messages/{item['id']}/attachments/{corpo['attachmentId']}"
+                ).get("data", "")
+                anexos.append(
+                    {
+                        "nome": nome,
+                        "bytes": base64.urlsafe_b64decode(dados + "=" * (-len(dados) % 4)),
+                        "assunto": headers.get("subject", "(sem assunto)"),
+                        "de": headers.get("from", ""),
+                        "data": datetime.fromtimestamp(
+                            int(message["internalDate"]) / 1000, tz=UTC
+                        ),
+                        "link": self._to_registro(message).link,
+                    }
+                )
+        return anexos
+
     # --- porta Fonte ------------------------------------------------------
 
     def status(self) -> dict[str, Any]:
