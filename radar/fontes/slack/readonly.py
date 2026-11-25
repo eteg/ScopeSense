@@ -4,6 +4,7 @@ Segunda trava além dos escopos do token: mesmo que alguém dê escopo de escrit
 ao app por engano, este cliente recusa qualquer método fora da lista.
 """
 
+import time
 from typing import Any
 
 from slack_sdk import WebClient
@@ -32,15 +33,21 @@ _ACCESS_ERRORS = frozenset(
 _NOT_FOUND_ERRORS = frozenset({"users_not_found", "user_not_found", "thread_not_found"})
 
 
+# Rede instável: a resposta às vezes chega cortada (IncompleteRead) ou a conexão cai.
+# Toda leitura tenta de novo antes de desistir. Erro do Slack (permissão etc.) não repete.
+TENTATIVAS = 3
+ESPERA_S = 1.5
+
+
 class ReadOnlySlackClient:
     def __init__(self, token: str, client: WebClient | None = None) -> None:
-        self._client = client or WebClient(token=token)
+        self._client = client or WebClient(token=token, timeout=60)
 
     def call(self, method: str, **params: Any) -> dict[str, Any]:
         if method not in READ_ONLY_METHODS:
             raise EscritaBloqueada(f"Método Slack '{method}' bloqueado: o Radar só faz leitura.")
         try:
-            response = self._client.api_call(method, http_verb="GET", params=params)
+            response = self._com_retentativa(method, params)
         except SlackApiError as exc:
             error = exc.response.get("error")
             if error in _NOT_FOUND_ERRORS:
@@ -51,10 +58,24 @@ class ReadOnlySlackClient:
                 raise AcessoNegado(f"Slack recusou '{method}': {error}.") from exc
             raise FalhaNaFonte(f"Slack respondeu erro em '{method}': {error}.") from exc
         except Exception as exc:
-            raise FalhaNaFonte(f"Falha ao falar com o Slack em '{method}': {exc}") from exc
+            raise FalhaNaFonte(
+                f"Falha ao falar com o Slack em '{method}' ({TENTATIVAS} tentativas): {exc}"
+            ) from exc
         data: dict[str, Any] = dict(response.data)  # type: ignore[arg-type]
         if method == "auth.test":  # o Slack informa os escopos do token no cabeçalho
             header = {k.lower(): v for k, v in (response.headers or {}).items()}
             raw = header.get("x-oauth-scopes") or ""
             data["scopes"] = sorted(s.strip() for s in raw.split(",") if s.strip())
         return data
+
+    def _com_retentativa(self, method: str, params: dict[str, Any]):
+        for tentativa in range(1, TENTATIVAS + 1):
+            try:
+                return self._client.api_call(method, http_verb="GET", params=params)
+            except SlackApiError:
+                raise  # o Slack respondeu: repetir não muda nada
+            except Exception:
+                if tentativa == TENTATIVAS:
+                    raise
+                time.sleep(ESPERA_S * tentativa)
+        raise AssertionError("inalcançável")

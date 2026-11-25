@@ -6,7 +6,7 @@ import unicodedata
 from datetime import datetime, timedelta
 from typing import Any
 
-from radar.core.errors import AcessoNegado, EntradaInvalida, FalhaNaFonte, ForaDoEscopo
+from radar.core.errors import AcessoNegado, EntradaInvalida, ForaDoEscopo
 from radar.core.models import Consulta, Origem, Registro
 from radar.fontes.slack.config import SlackSettings
 from radar.fontes.slack.readonly import ReadOnlySlackClient
@@ -139,7 +139,7 @@ class SlackFonte:
             params: dict[str, Any] = {"limit": PAGE_SIZE}
             if cursor:
                 params["cursor"] = cursor
-            data = self._call_com_retentativa("users.list", **params)
+            data = self._client.call("users.list", **params)
             for u in data.get("members", []):
                 if u.get("deleted") or u.get("is_bot"):
                     continue
@@ -152,17 +152,6 @@ class SlackFonte:
                 break
         self._usuarios = (agora, indice)
         return indice
-
-    def _call_com_retentativa(self, method: str, tentativas: int = 3, **params: Any) -> dict:
-        """Leituras grandes às vezes chegam cortadas (IncompleteRead): tenta de novo."""
-        for tentativa in range(1, tentativas + 1):
-            try:
-                return self._client.call(method, **params)
-            except FalhaNaFonte:
-                if tentativa == tentativas:
-                    raise
-                time.sleep(tentativa)
-        raise AssertionError("inalcançável")
 
     def _canais_por_nome(self) -> dict[str, dict[str, str]]:
         canais: dict[str, dict[str, str]] = {}
