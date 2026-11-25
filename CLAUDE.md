@@ -19,12 +19,12 @@ Tudo o que importa (problema, princípios, arquitetura, regras e design) está e
 ## Como começar uma sessão
 1. Descubra o que está livre: olhe o quadro ou use `gh issue list --label onda:1 --state open` (troque pelo número da onda). Atribua a issue a você antes de começar.
 2. Leia o corpo da issue inteiro. Ele já traz passo a passo, código, prompt sugerido e "Pronto quando".
-3. Leia `radar/models.py` antes de mexer em qualquer coisa que use `Registro`, `Alerta` ou `Decisao`. Cole-o no contexto quando a issue pedir.
+3. Leia `radar/core/models.py` antes de mexer em qualquer coisa que use `Registro`, `Alerta` ou `Decisao`. Cole-o no contexto quando a issue pedir.
 4. Faça o mínimo que fecha o "Pronto quando", teste na hora e siga. Não refatore código que não é da sua issue.
 
 ## Hábitos que economizam tempo
 - **Peça código pequeno e rode na hora.** Prefira passos curtos a gerar um módulo inteiro de uma vez.
-- **Nunca altere `radar/models.py`** sem combinar com o time. Se achar que falta um campo, pare e avise.
+- **Nunca altere `radar/core/models.py`** sem combinar com o time. Se achar que falta um campo, pare e avise.
 - **Antes de escrever uma chamada a biblioteca nova** (LangGraph, Langfuse, Slack Bolt, ChromaDB, API da Anthropic), confira o exemplo da issue e a documentação atual. Dois erros comuns:
   - Langfuse: o import certo é `from langfuse import observe, get_client`, não `langfuse.decorators`.
   - LangGraph: compile com `InMemorySaver`; sem checkpointer a aprovação humana falha.

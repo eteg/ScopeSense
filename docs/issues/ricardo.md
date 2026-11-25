@@ -614,3 +614,85 @@ Baixar custo e tempo e atender o critério **"custo e latência viáveis em esca
 ## ⚠️ Armadilhas
 - Triagem rigorosa demais perde desvio, e aí o ganho de custo não vale a nota perdida.
 <!-- /issue -->
+
+<!-- issue
+id: R-12
+title: Banco local SQLite (radar/db.py): toda a persistência do Radar
+dev: ricardo
+prio: P0
+frente: pipeline
+est: 30 min
+prazo: 13:00
+depende: R-01
+-->
+## 🎯 Objetivo
+Decisão do time em 25/11: **tudo que o Radar guarda vai para um SQLite local** (`data/radar.db`), sem arquivos `.jsonl` nem caches em JSON. Esta issue cria a camada única de acesso ao banco. **R-04, R-05, G-04, G-10, G-11, G-12 e R-08 usam o que ela entrega.** Use só o módulo `sqlite3` da biblioteca padrão (sem ORM).
+
+## 🪜 Passo a passo
+1. Crie **`radar/db.py`** com:
+   - `conectar()`: abre `DATABASE_PATH` (padrão `data/radar.db`; crie a pasta se faltar), `row_factory = sqlite3.Row`, `PRAGMA journal_mode=WAL`, `PRAGMA foreign_keys=ON`, `timeout=10`. **Uma conexão por chamada ou por thread**: o bot do Slack, o Streamlit e o grafo rodam em threads/processos diferentes.
+   - `init_db()`: cria as tabelas abaixo com `CREATE TABLE IF NOT EXISTS` (idempotente; chame no início de `slack_bot.py`, `app.py` e `eval/rodar_eval.py`).
+2. **Schema:**
+   ```sql
+   CREATE TABLE IF NOT EXISTS registros (
+     id TEXT PRIMARY KEY, origem TEXT NOT NULL, data TEXT NOT NULL, autor TEXT NOT NULL,
+     texto TEXT NOT NULL, link TEXT, canal TEXT, thread_id TEXT, metadados TEXT NOT NULL DEFAULT '{}');
+   CREATE TABLE IF NOT EXISTS obrigacoes (
+     clausula TEXT NOT NULL, texto TEXT NOT NULL, tipo TEXT NOT NULL, prazo TEXT, documento_exigido TEXT,
+     PRIMARY KEY (clausula, texto));
+   CREATE TABLE IF NOT EXISTS alertas (
+     registro_id TEXT PRIMARY KEY, tipo TEXT NOT NULL, confianca REAL NOT NULL, clausula TEXT NOT NULL,
+     trecho_contrato TEXT NOT NULL, trecho_evidencia TEXT NOT NULL, justificativa TEXT NOT NULL,
+     responsavel TEXT, acao TEXT NOT NULL,                 -- postar | resumo | descartar
+     status TEXT NOT NULL DEFAULT 'pendente',              -- pendente | aprovado | descartado | nao_e_desvio | em_resumo
+     trace_url TEXT, slack_canal TEXT, slack_ts TEXT,      -- mensagem do alerta, para atualizar após o clique
+     criado_em TEXT NOT NULL DEFAULT (datetime('now')));
+   CREATE TABLE IF NOT EXISTS decisoes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, alerta_id TEXT NOT NULL UNIQUE,   -- UNIQUE: 2º clique não grava de novo
+     acao TEXT NOT NULL, quem TEXT NOT NULL, quando TEXT NOT NULL);
+   CREATE TABLE IF NOT EXISTS documentos (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, tipo TEXT NOT NULL, pessoa TEXT, empresa TEXT,
+     validade TEXT, arquivo TEXT NOT NULL UNIQUE);          -- validade em ISO (AAAA-MM-DD)
+   CREATE TABLE IF NOT EXISTS llm_cache (
+     chave TEXT PRIMARY KEY, resposta TEXT NOT NULL, criado_em TEXT NOT NULL DEFAULT (datetime('now')));
+   CREATE TABLE IF NOT EXISTS eval_execucoes (
+     id INTEGER PRIMARY KEY AUTOINCREMENT, criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+     versao TEXT, metricas TEXT NOT NULL);                  -- metricas em JSON
+   ```
+   Datas sempre em **ISO 8601 com fuso** (`datetime.isoformat()`); `metadados` e `metricas` em JSON (`json.dumps`).
+3. **Funções** (assinaturas simples, que os outros chamam):
+   - `salvar_registro(registro)` · `salvar_obrigacoes(lista)` · `listar_obrigacoes()`
+   - `salvar_alerta(alerta, acao, status="pendente")` · `atualizar_slack_msg(registro_id, canal, ts)` · `listar_alertas(papel=None, status=None)` (já junta a decisão, se houver)
+   - **`registrar_decisao(decisao) -> bool`**: `INSERT OR IGNORE`; devolve `False` se já existia (segundo clique) e, quando grava, atualiza `alertas.status`. É a base do "um clique, uma decisão".
+   - `salvar_documentos(lista)` · `listar_documentos()`
+   - `cache_get(chave) -> str | None` · `cache_set(chave, resposta)` (o G-12 pluga isso no `llm.py`)
+   - `salvar_eval(versao, metricas: dict)`
+4. Use os modelos de `radar/core/models.py` (R-01) para entrar e sair das funções; **nada de dicionário solto** na fronteira.
+5. Testes `tests/test_db.py` com um banco temporário (`tmp_path`): `init_db()` duas vezes não quebra; salvar e ler um alerta; **`registrar_decisao` duas vezes devolve `True` e depois `False`**; escrever de duas conexões ao mesmo tempo funciona (WAL).
+6. Avise no canal quando as funções estiverem no ar. Quem usa: R-04, R-05, G-04, G-10, G-11, G-12, R-08.
+
+## 🤖 Prompt sugerido
+```
+Crie radar/db.py com o módulo sqlite3 da biblioteca padrão (sem ORM). conectar() abre
+DATABASE_PATH (padrão data/radar.db) com row_factory Row, WAL e foreign_keys; init_db()
+cria as tabelas registros, obrigacoes, alertas, decisoes (alerta_id UNIQUE), documentos,
+llm_cache e eval_execucoes com CREATE TABLE IF NOT EXISTS (schema abaixo). Funções:
+salvar_registro, salvar_obrigacoes, listar_obrigacoes, salvar_alerta, atualizar_slack_msg,
+listar_alertas, registrar_decisao (INSERT OR IGNORE; devolve False se já existia),
+salvar_documentos, listar_documentos, cache_get, cache_set, salvar_eval. Entrada e saída
+com os modelos Pydantic de radar/core/models.py. Datas em ISO 8601; JSON em metadados.
+Escreva tests/test_db.py com tmp_path.
+```
+
+## ✅ Pronto quando
+- [ ] `init_db()` roda duas vezes sem erro e cria as 7 tabelas
+- [ ] Salvar e listar um alerta funciona; `listar_alertas` filtra por papel e status
+- [ ] `registrar_decisao` devolve `True` na primeira vez e `False` na segunda, e só a primeira altera o status
+- [ ] Duas conexões gravando ao mesmo tempo não dão "database is locked"
+- [ ] `data/radar.db` está no `.gitignore` (já está) e não aparece no `git status`
+
+## ⚠️ Armadilhas
+- **Conexão compartilhada entre threads** dá erro do SQLite: abra uma por chamada/thread.
+- Data sem fuso ou em formato brasileiro (dd/mm) quebra a ordenação: grave sempre ISO.
+- Não crie `.jsonl` "só para debug": a regra é um lugar só para os dados.
+<!-- /issue -->

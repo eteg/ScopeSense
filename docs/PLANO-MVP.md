@@ -18,6 +18,19 @@
 - [ ] Saída do modelo sempre passa pelo schema Pydantic (com nova tentativa)
 - [ ] Plano B: o mesmo fluxo roda pelo Streamlit com o Slack desligado
 
+## 1b. Decisões de 25/11 (tarde): o que mudou no plano
+
+Depois que o Ricardo publicou a base do backend (`feature/base-backend`, já na `master`), o time fechou três decisões. **Onde o plano e a issue divergirem, vale esta tabela.**
+
+| Antes (plano original) | Agora |
+|------------------------|-------|
+| Schema em `radar/models.py` | **`radar/core/models.py`** (base do Ricardo). O `Registro` tem `metadados: dict`: guarde `canal` e `thread_id` ali, sem quebrar o schema. Falta criar `SaidaClassificacao`, `Alerta`, `Obrigacao`, `Decisao` e `DocumentoExtraido` (R-01) |
+| Interface `Fonte.fetch(desde)` em `radar/fontes/base.py` | **`radar/core/ports.py`**: `Fonte.fetch(consulta: Consulta)`, com `status()` e `origem`. `FileSource` e os parsers implementam essa mesma interface; as fontes entram no `registry.py` |
+| Slack só leitura | **O Slack precisa escrever.** As **fontes** continuam somente leitura (token de usuário). O **alerta é postado no grupo (canal) do projeto**, marcando o responsável, com os botões Aprovar, Descartar e Não é desvio, por `radar/slack_alertas.py` (token de bot). DM é opcional |
+| Arquivos `.jsonl` (alertas, decisões, casos de eval) e caches em JSON | **Tudo em SQLite local** (`data/radar.db`, módulo `sqlite3` da biblioteca padrão), via `radar/db.py` (nova issue **R-12**). Inclui o cache do modelo, as obrigações extraídas e os documentos extraídos |
+| `InMemorySaver` (mesmo processo) | Pode virar o checkpointer SQLite do LangGraph, se o R-02 conseguir; assim `processar` e `retomar` podem estar em processos diferentes |
+| Dependências em `requirements.txt` | O `pyproject.toml` da base é a fonte; as dependências do plano (langgraph, anthropic, chromadb, etc.) entram nele (G-01) |
+
 ## 2. Quem faz o quê
 
 | Dev | Papel no dia | Foco |
@@ -64,7 +77,7 @@ J-06 contrato ─► G-04            J-08 mensagens ─► G-03 / R-08 eval
 
 | Módulo | Dono | Assinatura |
 |--------|------|------------|
-| `radar/models.py` | Ricardo | `Registro`, `SaidaClassificacao`, `Alerta`, `Obrigacao`, `Decisao`, `DocumentoExtraido`, enums `Origem`, `TipoDesvio`, `Papel`, `Acao` |
+| `radar/core/models.py` | Ricardo | `Registro`, `SaidaClassificacao`, `Alerta`, `Obrigacao`, `Decisao`, `DocumentoExtraido`, enums `Origem`, `TipoDesvio`, `Papel`, `Acao` |
 | `radar/llm.py` | Ricardo | `chamar_estruturado(modelo, system, user, schema, temperatura=0.0) -> BaseModel` (já com nova tentativa e contador de saídas inválidas) |
 | `radar/fontes/base.py` | Gabriel | `class Fonte(Protocol): fetch(desde=None) -> list[Registro]`; `FileSource(pasta)`; `contexto_de(registros, registro, n=3) -> list[Registro]` |
 | `radar/contrato.py` | Gabriel | `dividir_clausulas(md)`, `extrair_obrigacoes(clausulas)`, `indexar_clausulas(...)`, `buscar(texto, k=3) -> list[dict]` com `numero`, `texto`, `tipo`, `distancia` |
@@ -102,7 +115,7 @@ Tudo fictício. Nada de nome real de colega ou cliente. CPF só via Faker.
 ## 7. Combinados de trabalho
 
 - **Issue = branch.** `git switch -c G-04-obrigacoes`. PR pequeno; quem abriu mescla depois de 1 olhada rápida de outro dev. Em atraso, vale commit direto na `master` **desde que a `master` continue rodando**.
-- **`radar/models.py` está congelado depois das 11:55.** Mudança só com aviso no canal e OK do Ricardo.
+- **`radar/core/models.py` está congelado depois das 11:55.** Mudança só com aviso no canal e OK do Ricardo.
 - **Um arquivo por nó do grafo** em `radar/nos/`. Ninguém edita o arquivo do outro.
 - **Segredos:** só no `.env` (já no `.gitignore`). Chave vazada, revoga na hora.
 - **Atualize o status no quadro** ao começar (Em andamento), ao abrir PR (Em revisão) e ao terminar (Pronto). Bloqueado? Comenta na issue marcando quem destrava.

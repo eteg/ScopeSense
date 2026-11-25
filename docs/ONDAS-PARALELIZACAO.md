@@ -4,6 +4,8 @@ Como ler: uma **onda** é o conjunto de issues que ficam liberadas quando a onda
 
 > **Sem dono fixo.** Quem estiver livre pega uma issue da menor onda com dependências prontas, se atribui e move o card para 🚧 Em andamento. As colunas "Sugestão" abaixo mostram só a divisão inicial e **não obrigam ninguém**. No GitHub, cada issue tem a label `onda:N` e o card tem o campo **Onda**.
 
+> **Atualização das 12h30:** a base do backend do Ricardo já está na `master` e cobre parte da onda 1 (R-01, G-01) e da onda 2 (G-02, leitura do Slack). Entrou a issue **R-12** (banco SQLite) na onda 2. As decisões estão em [PLANO-MVP.md](PLANO-MVP.md), seção 1b.
+
 > **Regra do dia:** não espere uma onda inteira acabar. Assim que as dependências **da sua** issue estiverem prontas, comece. E quando faltar pouco, comece com um *mock* (ver seção 3).
 
 ## 1. As ondas
@@ -17,11 +19,11 @@ Como ler: uma **onda** é o conjunto de issues que ficam liberadas quando a onda
 
 Ordem sugerida para o Joe dentro da onda, por prazo: J-03, J-01, J-05, J-04, **J-06**, depois J-11, J-13, J-15 (os três últimos têm prazo folgado).
 
-### Onda 2 · depende só da onda 1 (11 issues)
+### Onda 2 · depende só da onda 1 (12 issues)
 | Sugestão | Issues (prazo) · de quem depende |
 |------|----------------------------------|
 | Joe | **J-02** app Slack (12:10) ← J-01 · **J-07** personas JSON (12:20) ← J-01 · **J-08** mensagens (13:15) ← J-06 · **J-09** reunião `.vtt` (13:30) ← J-06 · J-14 slides (16:00) ← J-13 · J-17 e-mails (P2) ← J-06 |
-| Ricardo | **R-02** grafo base (12:40) ← R-01 · **R-05** roteamento (13:15) ← R-01 |
+| Ricardo | **R-02** grafo base (12:40) ← R-01 · **R-12** banco SQLite `radar/db.py` (13:00) ← R-01 · **R-05** roteamento (13:15) ← R-01 |
 | Gabriel | **G-02** `FileSource` (12:25) ← R-01 · **G-04** obrigações (13:05) ← J-06 + R-01 · **G-10** PDFs (14:25) ← J-06 + R-01 |
 
 ### Onda 3 · depende da onda 2 (7 issues)
@@ -107,7 +109,7 @@ Cada agente gasta a **cota da conta em que roda**. Vários ao mesmo tempo gastam
 ## 6. Resumo em uma linha por onda
 
 1. **Onda 1:** abrir as contas e chaves, criar o contrato, o schema e o repositório.
-2. **Onda 2:** app Slack, dados, grafo base, `FileSource`, obrigações e PDFs.
+2. **Onda 2:** app Slack, dados, grafo base, banco SQLite, `FileSource`, obrigações e PDFs.
 3. **Onda 3:** aprovação humana, Langfuse, parsers, ChromaDB e a DM.
 4. **Onda 4:** classificação com RAG, Slack ao vivo, botões e gabarito.
 5. **Onda 5:** documentos do terceiro, eval, anti-injeção e cache.

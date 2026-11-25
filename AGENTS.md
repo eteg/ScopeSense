@@ -61,7 +61,10 @@ Registro ──► buscar cláusulas (RAG, ChromaDB, top 3) ──► classifica
 ```
 app.py                 Streamlit (fila, simular mensagem)
 slack_bot.py           Bolt em Socket Mode (escuta + botões, MESMO processo do grafo)
-radar/models.py        schema (CONGELADO)        radar/llm.py       chamada estruturada ao modelo
+radar/core/models.py        schema (CONGELADO)        radar/llm.py       chamada estruturada ao modelo
+radar/core/            BASE DO BACKEND (Ricardo): models, ports (interface Fonte), errors
+radar/api/             FastAPI (/health, /fontes, /fontes/{origem}/registros)
+radar/db.py            SQLite local (data/radar.db): TODA a persistência        radar/slack_alertas.py  ESCRITA no Slack (alerta no grupo, botões)
 radar/config.py        modelos e limiares        radar/contrato.py  obrigações + ChromaDB
 radar/fontes/          FileSource, parsers       radar/pipeline.py  analisar() (usado pelo eval)
 radar/grafo.py         processar/retomar         radar/nos/         um arquivo por nó
@@ -73,7 +76,7 @@ As assinaturas entre módulos estão na tabela da seção 5 de `docs/PLANO-MVP.m
 
 ## 7. Regras que não se quebram
 
-- **`radar/models.py` está congelado** depois das 11:55. Mudança só com aviso no canal e OK do Ricardo.
+- **`radar/core/models.py` está congelado** depois das 11:55. Mudança só com aviso no canal e OK do Ricardo.
 - **Um arquivo por nó do grafo.** Não edite o arquivo de outro dev.
 - **`InMemorySaver`:** `processar` e `retomar` rodam no **mesmo processo**. Efeito colateral (DM, gravação do alerta) vai no nó `rotear`, **nunca** antes do `interrupt` no nó `aprovar` (na retomada o nó roda de novo).
 - **Slack:** chame `ack()` **primeiro** (limite de 3 s). O bot ignora mensagens de bot, do próprio Radar e com `subtype`. Só lê canais públicos onde foi convidado, **nunca DMs**.
@@ -81,6 +84,9 @@ As assinaturas entre módulos estão na tabela da seção 5 de `docs/PLANO-MVP.m
 - **Citações conferidas em código:** `trecho_contrato` e `trecho_evidencia` precisam existir no texto original; senão a confiança cai para menos de 0,5.
 - **Datas** sempre como `date`/`datetime` com fuso `America/Sao_Paulo`, nunca texto. Peça datas em ISO ao modelo.
 - **Segredos só no `.env`** (no `.gitignore`). Nunca no Git, nunca no Slack. Chave vazou: revogue na hora.
+- **Persistência: só SQLite local** (`data/radar.db`, `radar/db.py`, módulo `sqlite3` da biblioteca padrão). Registros, alertas, decisões, obrigações, documentos extraídos, cache das respostas do modelo e resultados do eval vão para lá. **Não crie arquivos `.jsonl` nem caches em JSON.** O banco não vai para o Git.
+- **O Slack escreve, mas só no módulo de alertas.** O alerta é **postado no grupo (canal) do projeto**, marcando o responsável, com os botões (`radar/slack_alertas.py`, token de bot `xoxb-`). As **fontes** (`radar/fontes/slack`, token de usuário `xoxp-`) continuam **somente leitura**: nunca chame método de escrita nelas. O bot ignora as próprias mensagens, mesmo quando o canal de alertas é o canal monitorado.
+- **Checkpointer do LangGraph:** `InMemorySaver` exige `processar` e `retomar` no mesmo processo. Com SQLite dá para usar o checkpointer SQLite do LangGraph (pacote `langgraph-checkpoint-sqlite`; confira o nome na documentação) e liberar essa restrição.
 - **Eval com `MODO_DEMO=0`** (cache desligado). Itere com o Haiku e rode o Sonnet só para o número final.
 - Nomes dos modelos **só** em `radar/config.py` (`claude-sonnet-5-5` e `claude-haiku-5-5`).
 

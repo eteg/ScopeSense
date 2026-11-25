@@ -89,20 +89,29 @@ Os nomes dos modelos ficam **somente** em `radar/config.py`.
 ```
 radar-desvios/
 ├── app.py                  # Streamlit: fila de alertas, execução, cartão de impacto
-├── slack_bot.py            # Bolt em Socket Mode
+├── slack_bot.py            # Bolt em Socket Mode: escuta o canal e trata os botões
 ├── radar/
-│   ├── models.py           # Registro, Alerta, Obrigacao, Decisao (schema congelado)
+│   ├── core/               # BASE DO BACKEND (Ricardo)
+│   │   ├── models.py       # Registro, Consulta, Alerta, Obrigacao, Decisao (schema congelado)
+│   │   ├── ports.py        # interface Fonte (fetch)
+│   │   └── errors.py
+│   ├── api/                # FastAPI: /health, /fontes, /fontes/{origem}/registros
+│   ├── fontes/             # registry + Slack (Web API e MCP, SOMENTE LEITURA) + FileSource e parsers
+│   ├── mcp/                # cliente e política do MCP
+│   ├── db.py               # SQLite local: registros, alertas, decisões, obrigações, cache
 │   ├── config.py           # nomes dos modelos e limiares de confiança
-│   ├── fontes/             # FileSource, SlackSource e parsers
+│   ├── llm.py              # chamada estruturada ao modelo
 │   ├── contrato.py         # obrigações e índice no ChromaDB
 │   ├── grafo.py            # LangGraph
 │   ├── nos/                # um arquivo por nó: buscar, classificar, rotear, aprovar, registrar
 │   ├── roteamento.py       # regras em código
+│   ├── slack_alertas.py    # ESCRITA no Slack: alerta no grupo do projeto + botões (token de bot)
 │   └── observabilidade.py  # Langfuse
+├── tests/                  # pytest
 ├── eval/
-│   ├── rodar_eval.py
-│   └── casos.jsonl
+│   └── rodar_eval.py
 ├── data/
+│   ├── radar.db            # banco SQLite (não vai para o Git)
 │   ├── contrato_alfa.md
 │   ├── projeto_alfa.json
 │   ├── slack_export.json
@@ -113,10 +122,15 @@ radar-desvios/
 ├── scripts/
 │   └── ping_modelo.py
 ├── docs/
+│   ├── BACKEND.md          # como configurar e rodar a API e a fonte do Slack
+│   ├── PLANO-MVP.md · ONDAS-PARALELIZACAO.md · issues/
 │   └── grafo.mmd
 ├── .env.example
-└── requirements.txt
+├── environment.yml · pyproject.toml
+└── requirements.txt        # ou dependências extras no pyproject.toml
 ```
+
+**Decisões de 25/11:** (1) o Slack **escreve**: os alertas são postados no **grupo (canal) do projeto**, marcando o responsável, por um módulo separado (`slack_alertas.py`, token de bot); as **fontes continuam somente leitura**. (2) **Tudo é guardado em SQLite local** (`data/radar.db`), sem arquivos `.jsonl`. (3) A base do backend é a do Ricardo (`radar/core`, `radar/api`, `radar/fontes`); detalhes em [docs/BACKEND.md](docs/BACKEND.md).
 
 ## Como rodar
 
@@ -125,14 +139,18 @@ radar-desvios/
 **Pré-requisitos:** Python 3.11, conta no Slack (workspace de teste), chave da API da Anthropic e projeto no Langfuse Cloud.
 
 ```bash
-# 1. Ambiente
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-pip install langgraph anthropic pydantic chromadb sentence-transformers \
-  slack-bolt pymupdf faster-whisper langfuse streamlit faker python-dotenv
+# 1. Ambiente (conda, como na base do backend; ou venv)
+conda env create -f environment.yml && conda activate dev-hackthon
+pip install -e ".[dev]"
+pip install langgraph anthropic chromadb sentence-transformers slack-bolt \
+  pymupdf langfuse streamlit faker python-dotenv tzdata
+# (essas dependências extras devem entrar no pyproject.toml: issue G-01)
 
 # Bônus de PII
 pip install presidio-analyzer presidio-anonymizer
+
+# API do backend (leitura das fontes)
+uvicorn radar.api.app:app --reload   # http://localhost:8000/docs
 
 # 2. Variáveis de ambiente
 cp .env.example .env             # preencha com as chaves (nunca vão para o Git)
@@ -157,14 +175,23 @@ ANTHROPIC_API_KEY=
 LANGFUSE_PUBLIC_KEY=
 LANGFUSE_SECRET_KEY=
 LANGFUSE_HOST=
-SLACK_BOT_TOKEN=
-SLACK_APP_TOKEN=
-MODO_DEMO=0   # 1 = lê as respostas do modelo do cache (data/cache/llm/)
+SLACK_TEAM_ID=            # workspace de teste (T...)
+SLACK_USER_TOKEN=         # xoxp-: usado pelas FONTES, somente leitura
+SLACK_CHANNEL_IDS=        # canais do projeto que as fontes podem ler
+SLACK_BOT_TOKEN=          # xoxb-: usado pelo módulo de alertas (escrita)
+SLACK_APP_TOKEN=          # xapp-: Socket Mode (mensagens ao vivo e botões)
+SLACK_ALERT_CHANNEL_ID=   # grupo do projeto onde o alerta é postado
+DATABASE_PATH=data/radar.db
+MODO_DEMO=0   # 1 = lê as respostas do modelo do cache (tabela llm_cache no SQLite)
 ```
+
+> O `.env.example` do repositório já traz todas essas variáveis comentadas.
 
 ### App do Slack
 
-- Scopes do bot: `channels:history`, `chat:write`, `im:write`, `users:read`
+- Scopes do **bot** (escrita dos alertas): `chat:write`, `im:write` (se houver DM), `channels:history`, `channels:read`, `users:read`
+- Scopes do **usuário** (fontes, **somente leitura**): os de leitura listados em [docs/BACKEND.md](docs/BACKEND.md)
+- O alerta é **postado no grupo do projeto** (`SLACK_ALERT_CHANNEL_ID`), marcando o responsável, com os botões; o bot precisa ser convidado nesse canal (`/invite @Radar`)
 - Evento assinado: `message.channels`
 - Socket Mode ligado (app token com `connections:write`) e interatividade ligada
 - Convide o bot aos canais `#projeto-alfa` e `#projeto-alfa-cliente`

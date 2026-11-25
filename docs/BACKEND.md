@@ -2,7 +2,11 @@
 
 POC do hackathon ETEG 2026. O Radar cruza o que foi combinado em contrato com o que acontece no projeto (Slack, Gmail, Google Calendar e anotações do Meet) e aponta desvios.
 
-> **Regra do projeto: o Radar só LÊ os canais.** Enviar mensagem, reagir, criar, editar ou apagar qualquer coisa só entra no código por decisão explícita do time. A regra é garantida em três camadas: escopos de leitura no token, lista de métodos permitidos no cliente da Web API e política de ferramentas no cliente MCP.
+> **Regra do projeto: as fontes só LÊEM os canais.** Enviar mensagem, reagir, criar, editar ou apagar qualquer coisa nunca passa pelas fontes. A regra é garantida em três camadas: escopos de leitura no token, lista de métodos permitidos no cliente da Web API e política de ferramentas no cliente MCP.
+>
+> **Atualização do time (25/11): o Radar também precisa escrever no Slack, só que em outro módulo.** Os alertas são postados no **grupo (canal) do projeto**, marcando o responsável, com os botões Aprovar, Descartar e Não é desvio. Isso é feito por `radar/slack_alertas.py`, com um **token de bot** (`xoxb-`, escopos `chat:write` e, se houver DM, `im:write`) e Socket Mode (`xapp-`). **O código das fontes continua somente leitura**; escrita só existe nesse módulo, e nunca com o token de usuário das fontes.
+>
+> **Persistência:** tudo fica em **SQLite local** (`data/radar.db`, ver `radar/db.py`).
 
 Estado atual: leitura de canais do Slack, pela Web API e pelo servidor MCP oficial do Slack.
 
