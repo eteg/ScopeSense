@@ -59,6 +59,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ acao, quem }),
     }),
+  notificar: (alertaId: string, quem: string) =>
+    request<Alerta>(`/alertas/${id(alertaId)}/notificar`, {
+      method: "POST",
+      body: JSON.stringify({ quem }),
+    }),
   desfazer: (alertaId: string, quem: string) =>
     request<Alerta>(`/alertas/${id(alertaId)}/decisao?quem=${encodeURIComponent(quem)}`, {
       method: "DELETE",

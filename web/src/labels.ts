@@ -74,3 +74,17 @@ export const reais = (v: number) => brl.format(v);
 export const dolares = (v: number) => usd.format(v);
 /** 15234 -> "15,2 mil" */
 export const tokens = (n: number) => (n >= 1000 ? `${milhar.format(n / 1000)} mil` : String(n));
+
+/** O que cada severidade quer dizer (mesmo texto da seção Categorias das Configurações). */
+export const SEVERIDADE: Record<Gravidade, string> = {
+  critico: "Risco legal ou trabalhista, ou entrega de algo que o contrato não prevê.",
+  medio: "Mudança de prazo ou SLA, ou promessa feita fora do contrato.",
+  baixo: "Ajuste pequeno, já coberto pelo contrato.",
+};
+
+/** "25/11" */
+export function dia(iso?: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso.replace(" ", "T")}Z`);
+  return Number.isNaN(d.getTime()) ? null : diaMes.format(d);
+}

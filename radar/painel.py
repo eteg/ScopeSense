@@ -5,6 +5,7 @@ tipo do desvio, como na seção "Categorias" do design: crítico quando há risc
 ou trabalhista ou entrega fora do contrato; médio para prazo e promessa.
 """
 
+import re
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
@@ -38,6 +39,22 @@ _CHAVE_TITULO = {
 }
 
 
+# Categoria que a tela mostra acima do título (termo do time: "divergência").
+CATEGORIA_POR_TIPO: dict[TipoDesvio, str] = {
+    TipoDesvio.escopo_extra: "Fora do escopo",
+    TipoDesvio.prazo_sla: "Prazo",
+    TipoDesvio.terceiro_sem_documento: "Documento de terceiro",
+    TipoDesvio.promessa_fora_do_contrato: "Promessa sem contrato",
+}
+
+
+def titulo_explicativo(justificativa: str, reserva: str) -> str:
+    """Primeira frase da justificativa, sem a marca "[gabarito]" da demo."""
+    texto = justificativa.replace("[gabarito]", "").strip()
+    frase = re.split(r"(?<=[.!?])\s+|;\s+", texto, maxsplit=1)[0].strip().rstrip(".")
+    return (frase[:1].upper() + frase[1:]) if frase else reserva
+
+
 class Evidencia(BaseModel):
     origem: Origem
     autor: str
@@ -49,7 +66,8 @@ class Evidencia(BaseModel):
 class AlertaTela(BaseModel):
     id: str  # = registro_id
     tipo: TipoDesvio
-    titulo: str
+    titulo: str  # explica a divergência sozinho (da justificativa)
+    categoria: str  # ex.: "Fora do escopo"
     gravidade: Gravidade
     confianca: float
     acao: Acao  # postar (>= 0,8) ou resumo (0,5 a 0,8)
@@ -97,7 +115,8 @@ def listar(*, caminho: str | Path | None = None) -> list[AlertaTela]:
             AlertaTela(
                 id=a.registro_id,
                 tipo=a.tipo,
-                titulo=titulo(a.tipo),
+                titulo=titulo_explicativo(a.justificativa, titulo(a.tipo)),
+                categoria=CATEGORIA_POR_TIPO.get(a.tipo, titulo(a.tipo)),
                 gravidade=GRAVIDADE_POR_TIPO.get(a.tipo, Gravidade.baixo),
                 confianca=a.confianca,
                 acao=a.acao,

@@ -345,6 +345,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/alertas/{alerta_id}/notificar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Notificar
+         * @description Posta o alerta no canal do projeto marcando o responsável e grava "aprovar".
+         *
+         *     409 se o alerta já foi decidido (nunca posta duas vezes).
+         */
+        post: operations["notificar_alertas__alerta_id__notificar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projeto": {
         parameters: {
             query?: never;
@@ -561,6 +583,8 @@ export interface components {
             tipo: components["schemas"]["TipoDesvio"];
             /** Titulo */
             titulo: string;
+            /** Categoria */
+            categoria: string;
             gravidade: components["schemas"]["Gravidade"];
             /** Confianca */
             confianca: number;
@@ -732,6 +756,11 @@ export interface components {
             para: string | null;
             /** Texto */
             texto: string;
+        };
+        /** NotificarPedido */
+        NotificarPedido: {
+            /** Quem */
+            quem: string;
         };
         /**
          * Origem
@@ -1434,6 +1463,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertaTela"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    notificar_alertas__alerta_id__notificar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alerta_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificarPedido"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
