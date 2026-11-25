@@ -30,3 +30,19 @@ EMOJI_DESVIO = {
 ROTULO_APROVAR = "Aprovar"
 ROTULO_DESCARTAR = "Descartar"
 ROTULO_NAO_E_DESVIO = "Não é desvio"
+
+# --- Alerta no Slack (G-07/G-08) ---------------------------------------------------------
+# Tipo do desvio (valor de `TipoDesvio`) -> chave usada em EMOJI_DESVIO e textos.TITULO_DESVIO.
+CHAVE_POR_TIPO = {
+    "escopo_extra": "escopo",
+    "prazo_sla": "prazo",
+    "terceiro_sem_documento": "documento",
+    "promessa_fora_do_contrato": "promessa",
+}
+
+# Emoji da linha que substitui os botões depois da decisão.
+EMOJI_DECISAO = {
+    "aprovar": ":white_check_mark:",
+    "descartar": ":wastebasket:",
+    "nao_e_desvio": ":no_entry_sign:",
+}
