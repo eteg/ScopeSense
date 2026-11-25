@@ -20,7 +20,6 @@ dist/
 .DS_Store
 
 # dados locais do Radar (banco SQLite, indice do ChromaDB, caches, resultados do eval)
-data/*.db
 data/*.db-*
 data/cache/
 chroma/
