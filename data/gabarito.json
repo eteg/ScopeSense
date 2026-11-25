@@ -1,0 +1,202 @@
+[
+  {
+    "registro_id": "slack:a434728eacb1",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:9e3c4fa493ec",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:0b1d5b5096b0",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Contexto da ISCA 4: pedido dentro do módulo de atendimento"
+  },
+  {
+    "registro_id": "slack:12d9a6788f02",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "ISCA 4: conversa sobre o módulo de atendimento, que está no escopo (2.1 a)"
+  },
+  {
+    "registro_id": "slack:90492da10f86",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Contexto do DESVIO 1: o pedido, sozinho, não obriga ninguém"
+  },
+  {
+    "registro_id": "slack:eaa7c8c30a3f",
+    "e_desvio": true,
+    "tipo": "escopo_extra",
+    "responsavel": "gestor",
+    "clausula": "2.2",
+    "nota": "DESVIO 1: o cliente pede o módulo de relatórios e a equipe aceita; a cláusula 2.2 exclui relatórios e a 5 exige aditivo assinado"
+  },
+  {
+    "registro_id": "slack:f2b21afccfb2",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:8962a000b073",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Contexto da ISCA 1: pergunta sobre módulo que já tem aditivo"
+  },
+  {
+    "registro_id": "slack:ef80e6d23a41",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "ISCA 1: módulo extra com aditivo já assinado (cláusula 5 cumprida)"
+  },
+  {
+    "registro_id": "slack:41726026ccf4",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:a91a5a80a3bf",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "ISCA 2: prazo remarcado com aceite formal e escrito do cliente (3.2)"
+  },
+  {
+    "registro_id": "slack:3a762e7f69cc",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:61ea068fb8cc",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:5b1fb77732af",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:740ef2faec5c",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:39c41b3c19c6",
+    "e_desvio": true,
+    "tipo": "prazo_sla",
+    "responsavel": "comercial",
+    "clausula": "3.1",
+    "nota": "DESVIO 2: integração com o CRM (M3, 29/01) só em 12/02, 14 dias depois; aviso informal não altera o marco (3.2)"
+  },
+  {
+    "registro_id": "slack:ab1a884f7fae",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:db7a26591334",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:bd976a8d67e6",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:86dd5a681f27",
+    "e_desvio": true,
+    "tipo": "terceiro_sem_documento",
+    "responsavel": "administrativo_contratos",
+    "clausula": "6.1",
+    "nota": "DESVIO 3: ASO do João venceu em 10/11/2026 e falta a guia de FGTS de 01/2027 (6.1 e 6.4)"
+  },
+  {
+    "registro_id": "slack:b05c4ce95cf2",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  },
+  {
+    "registro_id": "slack:5d2a45d03058",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "Contexto da ISCA 3: pedido que foi recusado"
+  },
+  {
+    "registro_id": "slack:ec35ef71de73",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "ISCA 3: pedido do cliente recusado educadamente, nada foi prometido (5.3)"
+  },
+  {
+    "registro_id": "slack:4ec886690656",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": "ISCA 5: os documentos da Carla estão em dia"
+  },
+  {
+    "registro_id": "slack:d7abd076d3d4",
+    "e_desvio": false,
+    "tipo": "nenhum",
+    "responsavel": null,
+    "clausula": null,
+    "nota": ""
+  }
+]

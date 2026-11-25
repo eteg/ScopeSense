@@ -1,0 +1,32 @@
+{
+  "_aviso": "Dados FICTÍCIOS. Os slack_id U_PENDENTE_* são placeholders: o Joe troca pelos IDs reais do workspace de teste (J-01/J-02) neste arquivo E em data/slack_export.json (mesma troca nos campos user e nas menções <@...>). Os IDs U_CLIENTE_xx são autores sintéticos e ficam como estão.",
+  "projeto": {
+    "nome": "Projeto Alfa",
+    "cliente": "Distribuidora Boreal",
+    "inicio": "2026-12-01",
+    "fim": "2027-02-23"
+  },
+  "canais": {
+    "projeto-alfa": {"descricao": "Canal interno da equipe da ETEG"},
+    "projeto-alfa-cliente": {"descricao": "Canal compartilhado com o cliente"}
+  },
+  "papeis": {
+    "gestor": {"nome": "Helena Prado", "slack_id": "U_PENDENTE_GESTOR", "autor_slack": true},
+    "comercial": {"nome": "Bruno Siqueira", "slack_id": "U_PENDENTE_COMERCIAL", "autor_slack": true},
+    "administrativo_contratos": {"nome": "Camila Reis", "slack_id": "U_PENDENTE_CONTRATOS", "autor_slack": true}
+  },
+  "pessoas_sinteticas": {
+    "U_CLIENTE_01": {"nome": "Marcos Lima", "papel": "cliente"},
+    "U_CLIENTE_02": {"nome": "Patrícia Souza", "papel": "cliente"}
+  },
+  "terceiro": {
+    "empresa": "Nimbus Serviços",
+    "pessoas": [{"nome": "João Teixeira"}, {"nome": "Carla Mota"}]
+  },
+  "roteamento": {
+    "escopo_extra": "gestor",
+    "prazo_sla": "comercial",
+    "terceiro_sem_documento": "administrativo_contratos",
+    "promessa_fora_do_contrato": "administrativo_contratos"
+  }
+}

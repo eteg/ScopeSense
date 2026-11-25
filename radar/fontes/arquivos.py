@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo
 
 from radar.core.errors import FalhaNaFonte
 from radar.core.models import Consulta, Origem, Registro
+from radar.fontes.slack_export import ler_export
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 
@@ -32,7 +33,7 @@ def _vazio(caminho: Path) -> list[Registro]:
 
 # Os outros devs só trocam a entrada (ex.: PARSERS["slack_export.json"] = parse_slack).
 PARSERS: dict[str, Parser] = {
-    "slack_export.json": _vazio,  # G-03
+    "slack_export.json": ler_export,  # G-03
     ".vtt": _vazio,  # G-09
     ".eml": _vazio,  # G-14
     ".pdf": _vazio,  # G-10
