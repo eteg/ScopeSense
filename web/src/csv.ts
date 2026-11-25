@@ -1,23 +1,27 @@
-import type { Achado } from "./api/client";
-import { GRAVIDADE, ORIGEM, PAPEL } from "./labels";
+import type { Alerta, Papel } from "./api/client";
+import { GRAVIDADE, ORIGEM, PAPEL, STATUS } from "./labels";
 
 const campo = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
 
 /** Baixa os alertas visíveis como CSV (separador ";" abre direto no Excel em pt-BR). */
-export function baixarCsv(achados: Achado[], pessoas: Record<string, string | null | undefined>) {
+export function baixarCsv(alertas: Alerta[], pessoas: Partial<Record<Papel, string | null>>) {
   const linhas = [
-    ["Gravidade", "Tipo", "Título", "Cláusula", "Contrato", "Evidência", "Fonte", "Responsável", "Papel", "Status"],
-    ...achados.map((a) => [
+    ["Gravidade", "Título", "Cláusula", "Contrato", "Evidência", "Origem", "Autor", "Data",
+     "Responsável", "Papel", "Confiança", "Justificativa", "Status"],
+    ...alertas.map((a) => [
       GRAVIDADE[a.gravidade],
-      a.tipo,
       a.titulo,
-      a.combinado?.referencia,
-      a.combinado?.trecho,
-      a.execucao.map((c) => (c.autor ? `${c.autor}: ${c.trecho}` : c.trecho)).join(" | "),
-      a.execucao.map((c) => c.referencia ?? ORIGEM[c.origem]).join(" | "),
-      pessoas[a.papeis[0]],
-      PAPEL[a.papeis[0]],
-      a.status,
+      a.clausula,
+      a.trecho_contrato,
+      a.trecho_evidencia,
+      a.evidencia ? ORIGEM[a.evidencia.origem] : "",
+      a.evidencia?.autor,
+      a.evidencia?.data,
+      a.responsavel ? pessoas[a.responsavel] : "",
+      a.responsavel ? PAPEL[a.responsavel] : "",
+      a.confianca,
+      a.justificativa,
+      STATUS[a.status] ?? a.status,
     ]),
   ];
   const texto = "﻿" + linhas.map((l) => l.map(campo).join(";")).join("\r\n");

@@ -2,11 +2,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
-from radar.achados.models import Papel
+from radar.core.models import Papel
 
 
 class CanalSlack(BaseModel):
-    id: str = Field(min_length=1)
+    id: str | None = Field(default=None, description="ID no Slack (C...); só ele limita a leitura")
     nome: str | None = None
 
 
@@ -24,7 +24,7 @@ class ProjetoConfig(BaseModel):
 
 class ConfigPedido(BaseModel):
     canais_slack: list[str] = Field(
-        default_factory=list, description='Nomes ("#alfa-projeto") ou IDs ("C0123...")'
+        default_factory=list, description='Nomes ("#projeto-alfa") ou IDs ("C0123...")'
     )
     pessoas: list[Pessoa] = Field(default_factory=list)
 
@@ -34,8 +34,6 @@ class Projeto(BaseModel):
 
     nome: str
     cliente: str | None
-    canal_slack: str | None = Field(description="Canal que recebe o relatório aprovado")
-    valor_hora: float
     canais_slack: list[CanalSlack]
     envolvidos: list[Pessoa]
     pessoas: dict[Papel, str | None] = Field(description="Primeira pessoa de cada papel")

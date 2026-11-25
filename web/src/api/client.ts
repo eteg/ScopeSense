@@ -3,13 +3,9 @@
 import type { components } from "./schema";
 
 type S = components["schemas"];
-export type Achado = S["Achado"];
-export type Analise = S["Analise"];
+export type Alerta = S["AlertaTela"];
+export type Resumo = S["Resumo"];
 export type Projeto = S["Projeto"];
-export type Citacao = S["Citacao"];
-export type Decisao = S["Decisao"];
-export type Status = S["Status"];
-export type Categoria = S["Categoria"];
 export type Gravidade = S["Gravidade"];
 export type Papel = S["Papel"];
 export type Origem = S["Origem"];
@@ -17,6 +13,8 @@ export type Pessoa = S["Pessoa"];
 export type Arquivo = S["Arquivo"];
 export type SlackConexao = S["SlackConexao"];
 export type ConfigPedido = S["ConfigPedido"];
+export type AcaoDecisao = S["DecisaoPedido"]["acao"];
+export type Relatorio = S["Relatorio"];
 
 export class ApiError extends Error {
   constructor(
@@ -46,19 +44,27 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+const id = (alertaId: string) => encodeURIComponent(alertaId);
+
 export const api = {
   projeto: () => request<Projeto>("/projeto"),
-  achados: () => request<Achado[]>("/achados"),
-  // 404 quando o Radar ainda não rodou: a tela esconde o resumo.
-  ultimaAnalise: () =>
-    request<Analise>("/analises/ultima").catch((e: unknown) => {
-      if (e instanceof ApiError && e.status === 404) return null;
-      throw e;
-    }),
-  decidir: (id: number, decisao: Decisao, decidido_por: string) =>
-    request<Achado>(`/achados/${id}/decisao`, {
+  alertas: () => request<Alerta[]>("/alertas"),
+  resumo: () => request<Resumo>("/alertas/resumo"),
+  decidir: (alertaId: string, acao: AcaoDecisao, quem: string) =>
+    request<Alerta>(`/alertas/${id(alertaId)}/decisao`, {
       method: "POST",
-      body: JSON.stringify({ decisao, decidido_por }),
+      body: JSON.stringify({ acao, quem }),
+    }),
+  desfazer: (alertaId: string, quem: string) =>
+    request<Alerta>(`/alertas/${id(alertaId)}/decisao?quem=${encodeURIComponent(quem)}`, {
+      method: "DELETE",
+    }),
+  gerarRelatorio: (dias: number) =>
+    request<Relatorio>("/relatorios", { method: "POST", body: JSON.stringify({ dias }) }),
+  publicarRelatorio: (relatorioId: number, quem: string) =>
+    request<Relatorio>(`/relatorios/${relatorioId}/publicar`, {
+      method: "POST",
+      body: JSON.stringify({ quem }),
     }),
   salvarConfig: (pedido: ConfigPedido) =>
     request<Projeto>("/projeto/config", { method: "PUT", body: JSON.stringify(pedido) }),
@@ -70,10 +76,9 @@ export const api = {
       body: arquivo,
       headers: { "content-type": "application/pdf" },
     }),
-  removerArquivo: (id: string) =>
-    request<void>(`/projeto/arquivos/${encodeURIComponent(id)}`, { method: "DELETE" }),
-  desfazer: (id: number, por: string) =>
-    request<Achado>(`/achados/${id}/decisao?por=${encodeURIComponent(por)}`, {
-      method: "DELETE",
-    }),
+  removerArquivo: (arquivoId: string) =>
+    request<void>(`/projeto/arquivos/${encodeURIComponent(arquivoId)}`, { method: "DELETE" }),
 };
+
+/** Ainda espera decisão (o alerta postado ou o que ficou no resumo). */
+export const aberto = (a: Alerta) => a.status === "pendente" || a.status === "em_resumo";

@@ -36,9 +36,7 @@ def _colecao_tem_dados(caminho: str | Path, embedding_function: Any) -> bool:
         return False
 
 
-def preparar_indice(
-    caminho: str | Path | None = None, embedding_function: Any = None
-) -> bool:
+def preparar_indice(caminho: str | Path | None = None, embedding_function: Any = None) -> bool:
     """Garante o índice do contrato no ChromaDB. Idempotente e seguro entre threads.
 
     Devolve `True` se indexou agora e `False` se já existia. Qualquer erro vira `RuntimeError`.

@@ -203,9 +203,7 @@ def tratar_clique(acao: str, body: dict, client: Any, estado: Estado) -> bool:
     usuario = body.get("user") or {}
     canal = (body.get("channel") or {}).get("id")
     mensagem = body.get("message") or {}
-    quem = (
-        _nome_do_usuario(client, estado, usuario.get("id")) or usuario.get("name") or "alguém"
-    )
+    quem = _nome_do_usuario(client, estado, usuario.get("id")) or usuario.get("name") or "alguém"
     decisao = Decisao(alerta_id=registro_id, acao=acao, quem=quem, quando=estado.agora())
 
     try:

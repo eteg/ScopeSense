@@ -3,7 +3,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from radar.api.routes import achados, fontes, gmail, projeto, slack
+from radar.api.routes import alertas, fontes, gmail, projeto, relatorios, slack
 from radar.core.errors import (
     AcessoNegado,
     Conflito,
@@ -47,6 +47,6 @@ def health() -> dict[str, str]:
 app.include_router(fontes.router)
 app.include_router(slack.router)
 app.include_router(gmail.router)
-app.include_router(achados.router)
-app.include_router(achados.analises_router)
+app.include_router(alertas.router)
 app.include_router(projeto.router)
+app.include_router(relatorios.router)

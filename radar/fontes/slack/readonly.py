@@ -20,6 +20,7 @@ READ_ONLY_METHODS: frozenset[str] = frozenset(
         "conversations.replies",
         "users.info",
         "users.lookupByEmail",  # achar o ID de quem marcar a partir do e-mail do papel
+        "users.list",  # achar o ID de quem marcar no relatório, pelo nome do setup
     }
 )
 

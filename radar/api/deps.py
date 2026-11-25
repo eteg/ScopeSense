@@ -1,48 +1,61 @@
 """Dependências da API (injeção via FastAPI `Depends`)."""
 
+import os
 from functools import lru_cache
 from typing import Annotated, cast
 
 from fastapi import Depends
 
-from radar.achados.config import AchadosSettings
-from radar.achados.store import AchadoStore
+from radar import config
 from radar.core.errors import FonteNaoConfigurada
 from radar.core.models import Origem
 from radar.fontes.gmail import GmailFonte, GmailMcp
 from radar.fontes.registry import FonteRegistry
 from radar.fontes.slack import SlackFonte, SlackMcp
 from radar.projeto.models import ProjetoConfig
-from radar.projeto.service import config_inicial
+from radar.projeto.service import config_inicial, ler_projeto_json
 from radar.projeto.store import ProjetoStore
 
 
-@lru_cache
-def get_settings() -> AchadosSettings:
-    return AchadosSettings()
+def get_projeto_json() -> dict:
+    """`data/projeto_alfa.json` (ou PROJETO_PATH): nome, cliente, canais e pessoas.
+
+    PROJETO_NOME e PROJETO_CLIENTE no .env trocam o nome e o cliente (ex.: SmartFit).
+    """
+    dados = ler_projeto_json(config.PROJETO_PATH)
+    nome = os.environ.get("PROJETO_NOME")
+    if nome and nome != (dados.get("projeto") or {}).get("nome"):
+        # Outro projeto: pessoas e canais do JSON de exemplo não valem; o setup começa limpo.
+        return {"projeto": {"nome": nome, "cliente": os.environ.get("PROJETO_CLIENTE")}}
+    return dados
 
 
 @lru_cache
 def get_projeto_store() -> ProjetoStore:
-    s = get_settings()
-    return ProjetoStore(s.db_path, s.arquivos_dir)
+    return ProjetoStore(config.DATABASE_PATH, config.UPLOADS_DIR)
 
 
-def aplicar_canais(registry: FonteRegistry, config: ProjetoConfig | None) -> None:
+def nome_do_projeto(projeto_json: dict) -> str:
+    return (projeto_json.get("projeto") or {}).get("nome") or "Projeto"
+
+
+def aplicar_canais(registry: FonteRegistry, cfg: ProjetoConfig | None) -> None:
     """Os canais salvos na tela de Configurações passam a ser os únicos lidos."""
-    if not config or not config.canais_slack:
+    if not cfg or not cfg.canais_slack:
         return
     try:
         slack = cast(SlackFonte, registry.get(Origem.slack))
     except FonteNaoConfigurada:
         return
-    slack.set_allowed([c.id for c in config.canais_slack])
+    ids = [c.id for c in cfg.canais_slack if c.id]
+    if ids:
+        slack.set_allowed(ids)
 
 
 @lru_cache
 def get_registry() -> FonteRegistry:
     registry = FonteRegistry()
-    aplicar_canais(registry, get_projeto_store().config(get_settings().projeto))
+    aplicar_canais(registry, get_projeto_store().config(nome_do_projeto(get_projeto_json())))
     return registry
 
 
@@ -77,29 +90,19 @@ def get_gmail_mcp(gmail: GmailDep) -> GmailMcp:
 GmailMcpDep = Annotated[GmailMcp, Depends(get_gmail_mcp)]
 
 
-SettingsDep = Annotated[AchadosSettings, Depends(get_settings)]
-
-
-@lru_cache
-def get_store() -> AchadoStore:
-    return AchadoStore(get_settings().db_path)
-
-
-StoreDep = Annotated[AchadoStore, Depends(get_store)]
+ProjetoJsonDep = Annotated[dict, Depends(get_projeto_json)]
 
 
 ProjetoStoreDep = Annotated[ProjetoStore, Depends(get_projeto_store)]
 
 
-def config_atual(
-    settings: AchadosSettings, store: ProjetoStore, registry: FonteRegistry
-) -> ProjetoConfig:
-    """Configuração salva; antes da primeira gravação, a do .env."""
-    salva = store.config(settings.projeto)
+def config_atual(projeto_json: dict, store: ProjetoStore, registry: FonteRegistry) -> ProjetoConfig:
+    """Configuração salva; antes da primeira gravação, a do JSON do projeto."""
+    salva = store.config(nome_do_projeto(projeto_json))
     if salva is not None:
         return salva
     try:
         canais_env = cast(SlackFonte, registry.get(Origem.slack)).settings.channel_ids
     except FonteNaoConfigurada:
         canais_env = []
-    return config_inicial(settings, canais_env)
+    return config_inicial(projeto_json, canais_env)

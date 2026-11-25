@@ -12,6 +12,9 @@ TENTATIVAS_SCHEMA = 2  # novas tentativas quando o modelo devolve saída inváli
 K_CLAUSULAS = 3  # cláusulas devolvidas pelo RAG
 
 DATABASE_PATH = os.environ.get("DATABASE_PATH", "data/radar.db")
+# Projeto monitorado (nome, cliente, canais e pessoas por papel) e PDFs enviados pela tela.
+PROJETO_PATH = os.environ.get("PROJETO_PATH", "data/projeto_alfa.json")
+UPLOADS_DIR = os.environ.get("UPLOADS_DIR", "data/uploads")
 
 # Com MODO_DEMO ligado, as respostas do modelo saem do cache (demo estável e barata).
 MODO_DEMO = os.environ.get("MODO_DEMO", "").strip().lower() in {"1", "true", "sim", "yes", "on"}

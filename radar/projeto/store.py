@@ -123,6 +123,21 @@ class ProjetoStore:
             conn.execute("DELETE FROM arquivos WHERE id = ?", (arquivo_id,))
         Path(row["caminho"]).unlink(missing_ok=True)
 
+    def textos_dos_arquivos(self, projeto: str) -> list[tuple[str, str, str]]:
+        """(nome, tipo, texto) de cada PDF enviado: é o "combinado" do relatório."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT nome, tipo, caminho FROM arquivos WHERE projeto = ? ORDER BY enviado_em",
+                (projeto,),
+            ).fetchall()
+        saida = []
+        for r in rows:
+            try:
+                saida.append((r["nome"], r["tipo"], texto_do_pdf(r["caminho"])))
+            except Exception as exc:  # noqa: BLE001 - um PDF ruim não derruba o relatório
+                saida.append((r["nome"], r["tipo"], f"(não foi possível ler: {exc})"))
+        return saida
+
 
 def _to_arquivo(row: sqlite3.Row) -> Arquivo:
     return Arquivo(
@@ -132,3 +147,12 @@ def _to_arquivo(row: sqlite3.Row) -> Arquivo:
         tamanho=row["tamanho"],
         enviado_em=row["enviado_em"],
     )
+
+
+def texto_do_pdf(caminho: str | Path, limite: int = 40_000) -> str:
+    """Texto de um PDF enviado (sem OCR: PDF escaneado sai vazio)."""
+    import pymupdf  # preguiçoso: a API sobe mesmo sem PyMuPDF
+
+    with pymupdf.open(caminho) as pdf:
+        texto = "\n".join(pagina.get_text() for pagina in pdf)
+    return texto[:limite]

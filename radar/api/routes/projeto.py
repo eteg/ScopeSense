@@ -5,11 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Query, Request
 
 from radar.api.deps import (
+    ProjetoJsonDep,
     ProjetoStoreDep,
     RegistryDep,
-    SettingsDep,
     aplicar_canais,
     config_atual,
+    nome_do_projeto,
 )
 from radar.core.errors import EntradaInvalida, RadarError
 from radar.core.models import Origem
@@ -21,25 +22,28 @@ router = APIRouter(prefix="/projeto", tags=["projeto"])
 
 
 @router.get("")
-def projeto(settings: SettingsDep, store: ProjetoStoreDep, registry: RegistryDep) -> Projeto:
-    """Nome, cliente, canais, pessoas por papel e valor da hora."""
-    return montar_projeto(settings, config_atual(settings, store, registry))
+def projeto(projeto_json: ProjetoJsonDep, store: ProjetoStoreDep, registry: RegistryDep) -> Projeto:
+    """Nome, cliente, canais e pessoas por papel."""
+    return montar_projeto(projeto_json, config_atual(projeto_json, store, registry))
 
 
 @router.put("/config")
 def salvar_config(
-    pedido: ConfigPedido, settings: SettingsDep, store: ProjetoStoreDep, registry: RegistryDep
+    pedido: ConfigPedido,
+    projeto_json: ProjetoJsonDep,
+    store: ProjetoStoreDep,
+    registry: RegistryDep,
 ) -> Projeto:
     """Salva canais e pessoas. Canal novo é conferido no Slack (422 se não existir)."""
-    atual = config_atual(settings, store, registry)
+    atual = config_atual(projeto_json, store, registry)
 
     def resolver():
         return registry.get(Origem.slack).resolver_canais  # type: ignore[attr-defined]
 
     nova = aplicar_pedido(atual, pedido, resolver)
-    store.salvar_config(settings.projeto, nova)
+    store.salvar_config(nome_do_projeto(projeto_json), nova)
     aplicar_canais(registry, nova)
-    return montar_projeto(settings, nova)
+    return montar_projeto(projeto_json, nova)
 
 
 @router.get("/slack")
@@ -53,24 +57,23 @@ def slack_conexao(registry: RegistryDep) -> SlackConexao:
 
 
 @router.get("/arquivos")
-def listar_arquivos(settings: SettingsDep, store: ProjetoStoreDep) -> list[Arquivo]:
-    return store.arquivos(settings.projeto)
+def listar_arquivos(projeto_json: ProjetoJsonDep, store: ProjetoStoreDep) -> list[Arquivo]:
+    return store.arquivos(nome_do_projeto(projeto_json))
 
 
 @router.post("/arquivos", status_code=201)
 async def enviar_arquivo(
     request: Request,
-    settings: SettingsDep,
+    projeto_json: ProjetoJsonDep,
     store: ProjetoStoreDep,
     nome: Annotated[str, Query(min_length=1, max_length=255)],
 ) -> Arquivo:
     """Envia um PDF (corpo da requisição = bytes do arquivo). Até 20 MB."""
-    tamanho = int(request.headers.get("content-length") or 0)
-    if tamanho > MAX_BYTES:
+    if int(request.headers.get("content-length") or 0) > MAX_BYTES:
         raise EntradaInvalida("Arquivo maior que 20 MB.")
-    return store.adicionar_arquivo(settings.projeto, nome, await request.body())
+    return store.adicionar_arquivo(nome_do_projeto(projeto_json), nome, await request.body())
 
 
 @router.delete("/arquivos/{arquivo_id}", status_code=204)
-def remover_arquivo(arquivo_id: str, settings: SettingsDep, store: ProjetoStoreDep) -> None:
-    store.remover_arquivo(settings.projeto, arquivo_id)
+def remover_arquivo(arquivo_id: str, projeto_json: ProjetoJsonDep, store: ProjetoStoreDep) -> None:
+    store.remover_arquivo(nome_do_projeto(projeto_json), arquivo_id)

@@ -1,92 +1,93 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { type Achado, api, type Decisao } from "../api/client";
-import slackLogo from "../assets/slack.png";
-import { AlertCard } from "../components/AlertCard";
-import { baixarCsv } from "../csv";
-import { Baixar, Engrenagem, Play, Seta, Voltar } from "../icons";
-import { custo, diaCurto, quando } from "../labels";
+import { type AcaoDecisao, aberto, type Alerta, api } from "../api/client";
 import type { PedirNome } from "../App";
+import { AlertCard } from "../components/AlertCard";
+import { RelatorioDialog } from "../components/RelatorioDialog";
+import { baixarCsv } from "../csv";
+import { Baixar, Engrenagem, Play, Voltar } from "../icons";
+import { ORIGEM, quando } from "../labels";
 
 type Filtro = "pendentes" | "todos";
-type Pendente = { ids: number[]; decisao: Decisao };
-type Aviso = { texto: string; ids: number[] } | null;
+type Pedido = { ids: string[]; acao: AcaoDecisao };
+type Aviso = { texto: string; ids: string[] } | null;
+
+const TEXTO_ACAO: Record<AcaoDecisao, string> = {
+  aprovar: "aprovado",
+  descartar: "descartado",
+  nao_e_desvio: "marcado como “não é desvio”",
+};
 
 export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }) {
   const qc = useQueryClient();
   const projeto = useQuery({ queryKey: ["projeto"], queryFn: api.projeto });
-  const achados = useQuery({ queryKey: ["achados"], queryFn: api.achados });
-  const analise = useQuery({ queryKey: ["analise"], queryFn: api.ultimaAnalise });
+  const alertas = useQuery({ queryKey: ["alertas"], queryFn: api.alertas });
+  const resumo = useQuery({ queryKey: ["resumo"], queryFn: api.resumo });
 
   const [filtro, setFiltro] = useState<Filtro>("pendentes");
   const [modoSelecao, setModoSelecao] = useState(false);
-  const [selecao, setSelecao] = useState<Set<number>>(new Set());
+  const [selecao, setSelecao] = useState<Set<string>>(new Set());
   const [aviso, setAviso] = useState<Aviso>(null);
+  const [relatorioAberto, setRelatorioAberto] = useState(false);
 
   const pessoas = projeto.data?.pessoas ?? {};
-  const canal = projeto.data?.canal_slack ?? "canal do projeto";
-  const todos = achados.data ?? [];
-  const pendentes = todos.filter((a) => a.status === "pendente");
+  const todos = alertas.data ?? [];
+  const pendentes = todos.filter(aberto);
   const visiveis = filtro === "pendentes" ? pendentes : todos;
 
   const impacto = useMemo(() => {
-    const validos = todos.filter((a) => a.status !== "nao_e_desvio");
-    const horas = validos.reduce((t, a) => t + (a.horas_estimadas ?? 0), 0);
+    const lidos = Object.values(resumo.data?.registros_lidos ?? {}).reduce((t, n) => t + n, 0);
     return {
-      desvios: validos.filter((a) => a.categoria === "desvio").length,
+      desvios: todos.filter((a) => a.status !== "nao_e_desvio").length,
+      lidos,
       criticos: pendentes.filter((a) => a.gravidade === "critico").length,
-      medios: pendentes.filter((a) => a.gravidade === "atencao").length,
-      horas,
-      custo: horas * (projeto.data?.valor_hora ?? 0),
+      medios: pendentes.filter((a) => a.gravidade === "medio").length,
+      aprovados: todos.filter((a) => a.status === "aprovado").length,
+      falsos: todos.filter((a) => a.status === "nao_e_desvio").length,
     };
-  }, [todos, pendentes, projeto.data]);
+  }, [todos, pendentes, resumo.data]);
 
-  const lidos = Object.entries(analise.data?.registros_lidos ?? {});
-  const totalLidos = lidos.reduce((t, [, n]) => t + n, 0);
+  const lidosPorOrigem = Object.entries(resumo.data?.registros_lidos ?? {})
+    .map(([origem, n]) => `${n} ${ORIGEM[origem as keyof typeof ORIGEM] ?? origem}`)
+    .join(" · ");
 
   const decidir = useMutation({
-    mutationFn: async ({ ids, decisao, por }: Pendente & { por: string }) => {
-      for (const id of ids) await api.decidir(id, decisao, por);
-      return { ids, decisao };
+    mutationFn: async ({ ids, acao, quem }: Pedido & { quem: string }) => {
+      for (const id of ids) await api.decidir(id, acao, quem);
+      return { ids, acao };
     },
-    onSuccess: ({ ids, decisao }) => {
+    onSuccess: ({ ids, acao }) => {
       const n = ids.length;
-      const plural = n === 1 ? "alerta" : "alertas";
       setAviso({
         ids,
-        texto:
-          decisao === "aprovado"
-            ? n > 1
-              ? `Relatório com ${n} ${plural} aprovado para ${canal}`
-              : `Alerta aprovado para ${canal}`
-            : `${n} ${plural} marcado${n > 1 ? "s" : ""} como “não é desvio”`,
+        texto: n === 1 ? `Alerta ${TEXTO_ACAO[acao]}` : `${n} alertas: ${TEXTO_ACAO[acao]}`,
       });
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ["achados"] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["alertas"] }),
   });
 
   const desfazer = useMutation({
-    mutationFn: async (ids: number[]) => {
-      for (const id of ids) await api.desfazer(id, nome);
+    mutationFn: async (ids: string[]) => {
+      for (const id of ids) await api.desfazer(id, nome || "?");
     },
     onSuccess: () => setAviso(null),
-    onSettled: () => qc.invalidateQueries({ queryKey: ["achados"] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: ["alertas"] }),
   });
 
-  function pedirDecisao(p: Pendente) {
+  function pedirDecisao(p: Pedido) {
     if (!nome.trim()) {
       // a decisão segue com o nome que a pessoa acabou de informar
-      pedirNome((n) => decidir.mutate({ ...p, por: n }));
+      pedirNome((n) => decidir.mutate({ ...p, quem: n }));
       return;
     }
-    decidir.mutate({ ...p, por: nome.trim() });
+    decidir.mutate({ ...p, quem: nome.trim() });
   }
 
-  function enviarLote() {
+  function aprovarLote() {
     const ids = pendentes.filter((a) => selecao.has(a.id)).map((a) => a.id);
     if (!ids.length) return;
-    pedirDecisao({ ids, decisao: "aprovado" });
+    pedirDecisao({ ids, acao: "aprovar" });
     setSelecao(new Set());
     setModoSelecao(false);
   }
@@ -104,12 +105,10 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
               PROJETOS
             </span>
             <h1>{projeto.data?.nome ?? "Projeto"}</h1>
+            {projeto.data?.cliente && <p className="sub-titulo">{projeto.data.cliente}</p>}
           </div>
-          {analise.data && (
-            <span className="ultima">
-              Última análise: {quando(analise.data.executada_em)} ·{" "}
-              {Math.round(analise.data.duracao_s)} s
-            </span>
+          {resumo.data?.ultimo_alerta_em && (
+            <span className="ultima">Último alerta: {quando(resumo.data.ultimo_alerta_em)}</span>
           )}
           <a
             href="#/configuracoes"
@@ -121,60 +120,54 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
           </a>
           <button
             type="button"
-            className="btn btn-primario"
-            title="Recarrega os alertas. O detector com LLM ainda não está ligado."
+            className="btn btn-texto"
+            title="Recarrega os alertas. Quem analisa é o bot do Slack ou o script do pipeline."
             onClick={() => qc.invalidateQueries()}
           >
+            Atualizar
+          </button>
+          <button type="button" className="btn btn-primario" onClick={() => setRelatorioAberto(true)}>
             <Play />
-            Rodar análise
+            Gerar relatório
           </button>
         </div>
       </header>
 
       <main className="container conteudo">
-        {achados.isError && (
+        {alertas.isError && (
           <p className="erro" role="alert">
-            Não consegui falar com a API: {achados.error.message}. O backend está rodando na porta
+            Não consegui falar com a API: {alertas.error.message}. O backend está rodando na porta
             8000?
           </p>
-        )}
-
-        {analise.data && (
-          <section aria-labelledby="dia-h" className="resumo-dia">
-            <div className="resumo-topo">
-              <h2 id="dia-h">RESUMO DO DIA · {diaCurto(analise.data.executada_em)}</h2>
-              <span>{lidos.map(([k, n]) => `${n} ${k}`).join(" · ")}</span>
-            </div>
-            <p>{analise.data.resumo}</p>
-          </section>
         )}
 
         <section aria-label="Impacto" className="impacto">
           <div className="metrica">
             <div className="metrica-rotulo">Desvios encontrados</div>
             <div className="metrica-valor">{impacto.desvios}</div>
-            <div className="metrica-sub">
-              {totalLidos ? `em ${totalLidos} registros lidos` : "na última análise"}
+            <div className="metrica-sub" title={lidosPorOrigem}>
+              {impacto.lidos ? `em ${impacto.lidos} registros lidos` : "nenhum registro lido ainda"}
             </div>
           </div>
           <div className="metrica">
             <div className="metrica-rotulo">Alertas críticos</div>
             <div className="metrica-valor">{impacto.criticos}</div>
             <div className="metrica-sub">
-              e {impacto.medios} {impacto.medios === 1 ? "alerta médio" : "alertas médios"}
+              e {impacto.medios} {impacto.medios === 1 ? "alerta médio" : "alertas médios"}{" "}
+              pendentes
             </div>
           </div>
           <div className="metrica">
-            <div className="metrica-rotulo">Horas evitadas</div>
-            <div className="metrica-valor">{impacto.horas} h</div>
-            <div className="metrica-sub">de trabalho fora do contrato</div>
-          </div>
-          <div className="metrica">
-            <div className="metrica-rotulo">Custo evitado</div>
-            <div className="metrica-valor">{custo(impacto.custo)}</div>
+            <div className="metrica-rotulo">Aguardando decisão</div>
+            <div className="metrica-valor">{pendentes.length}</div>
             <div className="metrica-sub">
-              premissa de {custo(projeto.data?.valor_hora ?? 0)} por hora
+              {impacto.aprovados} {impacto.aprovados === 1 ? "aprovado" : "aprovados"} até agora
             </div>
+          </div>
+          <div className="metrica">
+            <div className="metrica-rotulo">Não é desvio</div>
+            <div className="metrica-valor">{impacto.falsos}</div>
+            <div className="metrica-sub">falsos positivos que viram casos de teste</div>
           </div>
         </section>
 
@@ -192,8 +185,7 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
                   setAviso(null);
                 }}
               >
-                <img src={slackLogo} alt="" className="slack slack-16" />
-                Enviar alertas em lote
+                Aprovar em lote
               </button>
             ) : (
               <button
@@ -235,14 +227,20 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
           </div>
 
           <div className="lista">
-            {achados.isPending && <p className="vazio">Carregando alertas…</p>}
-            {achados.isSuccess && visiveis.length === 0 && (
+            {alertas.isPending && <p className="vazio">Carregando alertas…</p>}
+            {alertas.isSuccess && todos.length === 0 && (
+              <p className="vazio">
+                Nenhum alerta ainda. Rode <code>python -m radar.demo</code> para ver os desvios do
+                gabarito, ou o pipeline com a chave do modelo.
+              </p>
+            )}
+            {alertas.isSuccess && todos.length > 0 && visiveis.length === 0 && (
               <p className="vazio">Nenhum alerta pendente. Tudo dentro do combinado.</p>
             )}
-            {visiveis.map((a: Achado) => (
+            {visiveis.map((a: Alerta) => (
               <AlertCard
                 key={a.id}
-                achado={a}
+                alerta={a}
                 pessoas={pessoas}
                 modoSelecao={modoSelecao}
                 selecionado={selecao.has(a.id)}
@@ -253,7 +251,7 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
                   else n.add(a.id);
                   setSelecao(n);
                 }}
-                onDecidir={(decisao) => pedirDecisao({ ids: [a.id], decisao })}
+                onDecidir={(acao) => pedirDecisao({ ids: [a.id], acao })}
               />
             ))}
           </div>
@@ -265,18 +263,13 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
           )}
 
           {modoSelecao && (
-            <div role="region" aria-label="Enviar relatório" className="barra-lote">
+            <div role="region" aria-label="Aprovar em lote" className="barra-lote">
               <span className="lote-contagem">
                 {nSel === 0
-                  ? "Marque os alertas para enviar"
+                  ? "Marque os alertas para aprovar"
                   : nSel === 1
                     ? "1 alerta selecionado"
                     : `${nSel} alertas selecionados`}
-              </span>
-              <span className="suave">Enviar para</span>
-              <span className="destino">
-                {canal}
-                <Seta />
               </span>
               <span className="espaco" />
               <button
@@ -293,10 +286,9 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
                 type="button"
                 className="btn btn-primario"
                 disabled={nSel === 0 || decidir.isPending}
-                onClick={enviarLote}
+                onClick={aprovarLote}
               >
-                <img src={slackLogo} alt="" className="slack slack-branco" />
-                Enviar por Slack
+                Aprovar selecionados
               </button>
             </div>
           )}
@@ -315,7 +307,12 @@ export function Fila({ nome, pedirNome }: { nome: string; pedirNome: PedirNome }
           )}
         </section>
       </main>
-
+      <RelatorioDialog
+        aberto={relatorioAberto}
+        onFechar={() => setRelatorioAberto(false)}
+        nome={nome}
+        pedirNome={pedirNome}
+      />
     </>
   );
 }

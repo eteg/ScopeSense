@@ -29,5 +29,5 @@ eval/resultados/*.json
 # Credenciais locais (tokens OAuth). Nunca vão para o Git.
 .secrets/
 
-# Banco local de achados (SQLite)
-.data/
+# PDFs enviados pela tela de Configurações
+data/uploads/

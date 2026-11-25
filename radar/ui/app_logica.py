@@ -132,9 +132,7 @@ def criar_registro_simulado(
     )
 
 
-def nova_decisao(
-    registro_id: str, acao: str, quem: str, quando: datetime | None = None
-) -> Decisao:
+def nova_decisao(registro_id: str, acao: str, quem: str, quando: datetime | None = None) -> Decisao:
     return Decisao(alerta_id=registro_id, acao=acao, quem=quem, quando=quando or datetime.now(FUSO))
 
 

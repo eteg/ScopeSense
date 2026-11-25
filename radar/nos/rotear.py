@@ -36,6 +36,8 @@ def rotear(estado: dict) -> dict:
         db.init_db(caminho)
         status = "pendente" if acao == Acao.postar else "em_resumo"
         db.salvar_alerta(alerta, acao, status, caminho=caminho)
+        # O registro de origem vai junto: a tela mostra autor, data e link da evidência.
+        db.salvar_registro(estado["registro"], caminho=caminho)
     if acao == Acao.postar:
         _notificador(alerta, estado["registro"])
     return {"alerta": alerta, "acao": acao.value}

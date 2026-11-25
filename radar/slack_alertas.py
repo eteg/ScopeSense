@@ -1,4 +1,4 @@
-﻿"""Alerta no Slack (G-07): Block Kit com contrato e evidência lado a lado, e os botões (G-08).
+"""Alerta no Slack (G-07): Block Kit com contrato e evidência lado a lado, e os botões (G-08).
 
 É o ÚNICO módulo que escreve no Slack (token de bot `xoxb-`). O alerta é POSTADO NO GRUPO
 (canal) do projeto, marcando o responsável com `<@ID>`; não há DM. Funções finas e sem regra de

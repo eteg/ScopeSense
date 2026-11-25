@@ -25,8 +25,8 @@ const PAPEIS = Object.keys(PAPEL) as Papel[];
 
 const CATEGORIAS = [
   { chip: "chip-critico", rotulo: "Crítico", texto: "Risco legal ou trabalhista, ou entrega de algo que o contrato não prevê." },
-  { chip: "chip-atencao", rotulo: "Médio", texto: "Mudança de prazo ou SLA, ou promessa feita fora do contrato." },
-  { chip: "chip-observacao", rotulo: "Baixo", texto: "Ajuste pequeno, já coberto pelo contrato." },
+  { chip: "chip-medio", rotulo: "Médio", texto: "Mudança de prazo ou SLA, ou promessa feita fora do contrato." },
+  { chip: "chip-baixo", rotulo: "Baixo", texto: "Ajuste pequeno, já coberto pelo contrato." },
 ];
 
 type Linha = { chave: number; nome: string; papel: Papel };
@@ -54,7 +54,12 @@ export function Configuracoes() {
   // Preenche o formulário uma vez, quando o projeto chega.
   useEffect(() => {
     if (!projeto.data || carregado) return;
-    setCanais(projeto.data.canais_slack.map((c) => (c.nome ? `#${c.nome}` : c.id)).join(", "));
+    setCanais(
+      projeto.data.canais_slack
+        .map((c) => (c.nome ? `#${c.nome}` : (c.id ?? "")))
+        .filter(Boolean)
+        .join(", "),
+    );
     setPessoas(projeto.data.envolvidos.length ? projeto.data.envolvidos.map(linha) : [linha()]);
     setCarregado(true);
   }, [projeto.data, carregado]);
@@ -238,7 +243,7 @@ export function Configuracoes() {
                 type="text"
                 value={canais}
                 onChange={(e) => setCanais(e.target.value)}
-                placeholder="Ex.: #portal-projeto"
+                placeholder="Ex.: #projeto-alfa"
               />
             </label>
             <div className="selo-slack">

@@ -1,15 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from radar.achados.config import AchadosSettings
-from radar.achados.models import Papel
 from radar.api.app import app
-from radar.api.deps import get_projeto_store, get_registry, get_settings
+from radar.api.deps import get_projeto_json, get_projeto_store, get_registry
 from radar.core.errors import EntradaInvalida
-from radar.core.models import Origem
+from radar.core.models import Origem, Papel
 from radar.fontes.registry import FonteRegistry
 from radar.projeto.models import CanalSlack, ConfigPedido, Pessoa, ProjetoConfig
-from radar.projeto.service import aplicar_pedido
+from radar.projeto.service import aplicar_pedido, config_inicial, ler_projeto_json
 from radar.projeto.store import ProjetoStore, tipo_pelo_nome
 from tests.conftest import CANAL
 
@@ -64,6 +62,17 @@ def test_slack_resolve_por_nome_e_recusa_o_que_nao_existe(make_slack) -> None:
         slack.resolver_canais(["#nao-existe"])
 
 
+def test_config_inicial_vem_do_json_do_projeto() -> None:
+    cfg = config_inicial(ler_projeto_json("data/projeto_alfa.json"), ["C0000000000"])
+    assert {p.papel: p.nome for p in cfg.pessoas} == {
+        Papel.gestor: "Helena Prado",
+        Papel.comercial: "Bruno Siqueira",
+        Papel.administrativo_contratos: "Camila Reis",
+    }
+    # canais do JSON só com nome; o ID de exemplo do .env é ignorado
+    assert [c.nome for c in cfg.canais_slack] == ["projeto-alfa", "projeto-alfa-cliente"]
+
+
 # --- arquivos ---------------------------------------------------------------------
 
 
@@ -97,11 +106,14 @@ def test_arquivo_so_pdf_e_sem_caminho(pstore, tmp_path) -> None:
 @pytest.fixture
 def api(make_slack, pstore):
     slack, fake = make_slack(**{"conversations.list": CANAIS})
-    settings = AchadosSettings(_env_file=None, projeto="Projeto Alfa", gestor="Paulo Lima")
+    projeto_json = {
+        "projeto": {"nome": "Projeto Alfa", "cliente": "Distribuidora Boreal"},
+        "papeis": {"gestor": {"nome": "Paulo Lima"}},
+    }
     registry = FonteRegistry({Origem.slack: lambda: slack})
     app.dependency_overrides.update(
         {
-            get_settings: lambda: settings,
+            get_projeto_json: lambda: projeto_json,
             get_projeto_store: lambda: pstore,
             get_registry: lambda: registry,
         }
@@ -115,8 +127,9 @@ def api(make_slack, pstore):
 def test_rotas_da_configuracao(api) -> None:
     client, slack = api
 
-    inicial = client.get("/projeto").json()  # antes de salvar: vem do .env
+    inicial = client.get("/projeto").json()  # antes de salvar: vem do JSON do projeto
     assert inicial["pessoas"]["gestor"] == "Paulo Lima"
+    assert inicial["cliente"] == "Distribuidora Boreal"
     assert [c["id"] for c in inicial["canais_slack"]] == [CANAL]
 
     corpo = {
@@ -128,9 +141,9 @@ def test_rotas_da_configuracao(api) -> None:
     }
     salvo = client.put("/projeto/config", json=corpo)
     assert salvo.status_code == 200
-    assert salvo.json()["canal_slack"] == "#alfa-projeto"
+    assert [c["nome"] for c in salvo.json()["canais_slack"]] == ["alfa-projeto", "alfa-contratos"]
     assert salvo.json()["pessoas"] == {
-        "gestor": None, "comercial": "Carla Melo", "adm_contratos": None
+        "gestor": None, "comercial": "Carla Melo", "administrativo_contratos": None
     }  # fmt: skip
     assert slack._allowed == {"C222222222", "C333333333"}  # a leitura segue a tela
 

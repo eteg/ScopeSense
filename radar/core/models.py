@@ -44,6 +44,7 @@ class Consulta(BaseModel):
     limite: int = Field(default=100, ge=1, le=1000)
     escopo: str | None = None
 
+
 # --- Alerta, decisão e extração (R-01) -------------------------------------------------
 
 

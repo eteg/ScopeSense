@@ -89,6 +89,8 @@ Os nomes dos modelos ficam **somente** em `radar/config.py`.
 ```
 radar-desvios/
 ├── app.py                  # Streamlit: fila de alertas, execução, cartão de impacto
+├── web/                    # tela web em React: Fila de alertas e Configurações (design do MVP)
+├── dev.sh                  # sobe a API e a tela web juntas
 ├── slack_bot.py            # Bolt em Socket Mode: escuta o canal e trata os botões
 ├── radar/
 │   ├── core/               # BASE DO BACKEND (Ricardo)
@@ -160,6 +162,8 @@ python scripts/ping_modelo.py    # deve responder "ok"
 
 # 4. Interface
 streamlit run app.py
+# ou a tela web (React, segue o design do MVP): API + tela juntas, demo sem o modelo
+./dev.sh --demo                  # http://localhost:5173 (precisa de Node 20+; ver docs/BACKEND.md)
 
 # 5. Bot do Slack
 python slack_bot.py

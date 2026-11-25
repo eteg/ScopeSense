@@ -1,6 +1,7 @@
 """Adaptador do Slack para a porta `Fonte`."""
 
 import re
+import unicodedata
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -109,6 +110,36 @@ class SlackFonte:
                 f"Canal não encontrado ou sem acesso no Slack: {', '.join(faltando)}."
             )
         return resolvidos
+
+    def ids_por_nome(self, nomes: list[str]) -> dict[str, str | None]:
+        """ID do Slack de cada nome (real_name ou display_name, sem acento e caixa).
+
+        Nome que não bate com ninguém (ou bate com mais de uma pessoa) fica None:
+        o relatório escreve o nome em negrito com "(não encontrei no Slack)".
+        """
+        self._auth_data()
+        indice: dict[str, set[str]] = {}
+        cursor: str | None = None
+        for _ in range(MAX_LIST_PAGES):
+            params: dict[str, Any] = {"limit": PAGE_SIZE}
+            if cursor:
+                params["cursor"] = cursor
+            data = self._client.call("users.list", **params)
+            for u in data.get("members", []):
+                if u.get("deleted") or u.get("is_bot"):
+                    continue
+                perfil = u.get("profile") or {}
+                for nome in (perfil.get("real_name"), perfil.get("display_name"), u.get("name")):
+                    if nome:
+                        indice.setdefault(_normalizar(nome), set()).add(u["id"])
+            cursor = (data.get("response_metadata") or {}).get("next_cursor")
+            if not cursor:
+                break
+        saida: dict[str, str | None] = {}
+        for nome in nomes:
+            ids = indice.get(_normalizar(nome), set())
+            saida[nome] = next(iter(ids)) if len(ids) == 1 else None
+        return saida
 
     def _canais_por_nome(self) -> dict[str, dict[str, str]]:
         canais: dict[str, dict[str, str]] = {}
@@ -332,9 +363,15 @@ class SlackFonte:
                 "canal": channel_id,
                 "ts": ts,
                 "thread_ts": thread_ts,
+                "thread_id": thread_ts,  # nome que o Registro do núcleo usa (Registro.thread_id)
                 "autor_id": user_id,
                 "mencionados": mencionados,
                 "respostas": message.get("reply_count", 0),
                 "subtipo": message.get("subtype"),
             },
         )
+
+
+def _normalizar(nome: str) -> str:
+    sem_acento = unicodedata.normalize("NFKD", nome).encode("ascii", "ignore").decode()
+    return " ".join(sem_acento.lower().strip().lstrip("@").split())

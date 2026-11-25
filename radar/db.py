@@ -60,6 +60,10 @@ CREATE TABLE IF NOT EXISTS documentos (
 CREATE TABLE IF NOT EXISTS llm_cache (
   chave TEXT PRIMARY KEY, resposta TEXT NOT NULL,
   criado_em TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS relatorios (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, criado_em TEXT NOT NULL DEFAULT (datetime('now')),
+  desde TEXT NOT NULL, ate TEXT NOT NULL, texto TEXT NOT NULL, fontes TEXT NOT NULL DEFAULT '{}',
+  canal TEXT, publicado_em TEXT, publicado_por TEXT, slack_ts TEXT, slack_link TEXT);
 CREATE TABLE IF NOT EXISTS eval_execucoes (
   id INTEGER PRIMARY KEY AUTOINCREMENT, criado_em TEXT NOT NULL DEFAULT (datetime('now')),
   versao TEXT, metricas TEXT NOT NULL);
@@ -310,6 +314,28 @@ def registrar_decisao(decisao: Decisao, *, caminho: str | Path | None = None) ->
         return True
 
 
+def desfazer_decisao(alerta_id: str, *, caminho: str | Path | None = None) -> bool:
+    """Botão "Desfazer" da tela: apaga a decisão e volta o alerta para `pendente`.
+
+    True se havia decisão. Não mexe na mensagem do Slack (o bot já a atualizou).
+    """
+    with _sessao(caminho) as con:
+        cur = con.execute("DELETE FROM decisoes WHERE alerta_id = ?", (alerta_id,))
+        if cur.rowcount == 0:
+            return False
+        con.execute("UPDATE alertas SET status = 'pendente' WHERE registro_id = ?", (alerta_id,))
+        return True
+
+
+def contar_registros(*, caminho: str | Path | None = None) -> dict[str, int]:
+    """Quantos registros de cada origem o Radar já leu (ex.: {"slack": 23, "email": 4})."""
+    with _sessao(caminho) as con:
+        linhas = con.execute(
+            "SELECT origem, COUNT(*) AS n FROM registros GROUP BY origem ORDER BY origem"
+        ).fetchall()
+    return {r["origem"]: r["n"] for r in linhas}
+
+
 # --- documentos do terceiro ------------------------------------------------------------
 
 
@@ -366,3 +392,49 @@ def salvar_eval(versao: str, metricas: dict, *, caminho: str | Path | None = Non
             (versao, json.dumps(metricas, ensure_ascii=False, default=str)),
         )
         return cur.lastrowid
+
+
+# --- relatórios (botão "Gerar relatório" da tela web) ----------------------------------
+
+
+def salvar_relatorio(
+    desde: datetime,
+    ate: datetime,
+    texto: str,
+    fontes: dict,
+    canal: str | None,
+    *,
+    caminho: str | Path | None = None,
+) -> int:
+    with _sessao(caminho) as con:
+        cur = con.execute(
+            "INSERT INTO relatorios (desde, ate, texto, fontes, canal) VALUES (?, ?, ?, ?, ?)",
+            (_iso(desde), _iso(ate), texto, json.dumps(fontes, ensure_ascii=False), canal),
+        )
+        return cur.lastrowid
+
+
+def obter_relatorio(relatorio_id: int, *, caminho: str | Path | None = None) -> dict | None:
+    with _sessao(caminho) as con:
+        r = con.execute("SELECT * FROM relatorios WHERE id = ?", (relatorio_id,)).fetchone()
+    if r is None:
+        return None
+    dados = dict(r)
+    dados["fontes"] = json.loads(dados["fontes"])
+    return dados
+
+
+def marcar_relatorio_publicado(
+    relatorio_id: int,
+    por: str,
+    slack_ts: str,
+    slack_link: str | None,
+    *,
+    caminho: str | Path | None = None,
+) -> None:
+    with _sessao(caminho) as con:
+        con.execute(
+            "UPDATE relatorios SET publicado_em = ?, publicado_por = ?, slack_ts = ?, "
+            "slack_link = ? WHERE id = ?",
+            (_iso(datetime.now(FUSO)), por, slack_ts, slack_link, relatorio_id),
+        )

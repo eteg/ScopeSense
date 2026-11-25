@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Sobe a API (porta 8000) e a tela (porta 5173) juntas. Ctrl+C para as duas.
 # Uso: ./dev.sh            (usa os dados que já estão no banco)
-#      ./dev.sh --demo     (recria o banco com os achados sintéticos antes)
+#      ./dev.sh --demo     (recria o banco com os 4 desvios do gabarito, sem o modelo)
 #
 # Python: usa o .venv do projeto se existir (crie com: python3 -m venv .venv &&
 # .venv/bin/pip install -e ".[dev]"); senão, o ambiente ativo (ex.: conda).
@@ -18,7 +18,7 @@ command -v uvicorn >/dev/null || {
 }
 command -v npm >/dev/null || { echo "npm não encontrado. Instale o Node 20+ (veja o README)." >&2; exit 1; }
 
-[[ "${1:-}" == "--demo" ]] && python -m radar.achados.demo --limpar
+[[ "${1:-}" == "--demo" ]] && python -m radar.demo --limpar
 [[ -d web/node_modules ]] || (cd web && npm install)
 
 trap 'kill 0' EXIT

@@ -11,10 +11,11 @@ POC do hackathon ETEG 2026. O Radar cruza o que foi combinado em contrato com o 
 Estado atual:
 
 - leitura de canais do Slack, pela Web API e pelo servidor MCP oficial do Slack;
-- achados (desvios e problemas) guardados em SQLite, com a decisão humana de cada um;
-- frontend em React (`web/`) para revisar os achados e decidir: **Aprovar**, **Descartar** ou **Não é desvio**.
+- leitura do Gmail (só os e-mails do projeto), pela Gmail API e pelo servidor MCP do Google;
+- rotas `/alertas` sobre os alertas do pipeline (`radar/db.py`), com a decisão humana de cada um;
+- frontend em React (`web/`): Fila de alertas (**Aprovar**, **Descartar**, **Não é desvio**) e Configurações do projeto.
 
-Decidir no frontend só grava no banco do próprio Radar. Nada é publicado no Slack: isso será um passo separado, com token de bot próprio, e só para achados aprovados.
+Decidir no frontend grava no mesmo SQLite que o nó `registrar` e os botões do Slack (`db.registrar_decisao`). A tela não posta nada no Slack: quem posta o alerta no grupo do projeto é o `slack_bot.py`.
 
 ## Ambiente
 
@@ -92,14 +93,14 @@ uvicorn radar.api.app:app --reload
 
 Documentação interativa: http://localhost:8000/docs
 
-### Frontend (`web/`): a tela da Fila de alertas
+### Frontend (`web/`): Fila de alertas e Configurações
 
-A tela segue o design do MVP no canvas [Radar de Desvios · Interfaces](https://claude.ai/artifact/WQzLGJCfodQF3BpFjFoud8) (tela "1 · Fila de alertas + cartão de impacto"). Precisa de Node 20 ou mais novo.
+As telas seguem o design do MVP no canvas [Radar de Desvios · Interfaces](https://claude.ai/artifact/WQzLGJCfodQF3BpFjFoud8): "1 · Fila de alertas + cartão de impacto" e "3 · Configurações do projeto". Precisa de Node 20 ou mais novo.
 
 **Rodar tudo com um comando** (API + tela, Ctrl+C para as duas):
 
 ```bash
-./dev.sh --demo     # --demo recria o banco com os achados sintéticos do design
+./dev.sh --demo     # --demo recria o banco com os 4 desvios do gabarito, sem o modelo
 ```
 
 Abra http://localhost:5173.
@@ -109,7 +110,7 @@ Abra http://localhost:5173.
 ```bash
 # terminal 1: API
 source .venv/bin/activate              # ou: conda activate dev-hackthon
-python -m radar.achados.demo --limpar   # só na primeira vez, ou para zerar a demo
+python -m radar.demo --limpar          # demo sem o modelo (opcional)
 uvicorn radar.api.app:app --reload
 ```
 
@@ -122,24 +123,22 @@ npm run dev        # http://localhost:5173
 
 O Vite repassa `/api/*` para o FastAPI na porta 8000, então o navegador fala com uma origem só e não precisa de CORS. Os tokens ficam só no backend.
 
-O que a tela faz:
+**De onde vêm os alertas:** do pipeline (`grafo.py` pelo `slack_bot.py`, ou `scripts/classificar_demo.py`), gravados em `data/radar.db`. Sem a chave do modelo, `python -m radar.demo` monta a Fila com os 4 desvios de `data/gabarito.json`: a justificativa desses começa com `[gabarito]`, porque são a resposta esperada, não a saída do modelo.
 
-- **Resumo do dia** (cartão escuro) e **impacto**: desvios, críticos, horas e custo evitado (`horas_estimadas` × `RADAR_VALOR_HORA`).
-- **Notificar por Slack** e **Enviar alertas em lote** gravam a decisão `aprovado`; **Não é desvio** grava `nao_e_desvio` (vira caso de teste). **Desfazer** volta para pendente.
-- **Ainda não publica no Slack.** A aprovação só fica no banco; o envio de verdade será um passo separado, com token de bot próprio.
+Fila (`#/`):
+
+- **Gravidade** pelo tipo, como na seção "Categorias" do design: escopo extra e terceiro sem documento são *Crítico*; prazo e promessa são *Médio*. A confiança do modelo aparece no canto do cartão; alerta entre 0,5 e 0,8 leva o selo *No resumo*.
+- **Aprovar**, **Descartar** e **Não é desvio** (os mesmos do Streamlit e do Slack), **Aprovar em lote** e **Desfazer**. Cada alerta é decidido uma vez: se alguém já decidiu pelo Slack, a tela recebe 409.
+- **Impacto:** desvios encontrados (de quantos registros lidos), críticos pendentes, aguardando decisão e "não é desvio" (falsos positivos para o eval).
 - Quem decide: na primeira decisão a tela pede seu nome (sem login na POC); clique no avatar para trocar.
-- **Rodar análise** só recarrega os alertas: o detector com LLM ainda não existe. A volta para "Projetos" ainda não tem tela.
+- **Atualizar** só recarrega: quem analisa é o pipeline. A volta para "Projetos" ainda não tem tela.
 
 ### Tela de Configurações (engrenagem → `#/configuracoes`)
 
-Segue a tela "3 · Configurações do projeto" do mesmo canvas.
-
-- **Contrato e arquivos:** o botão + envia PDFs do computador (até 20 MB). O arquivo vai na hora para `.data/arquivos/`, fora do Git; a lixeira apaga na hora. O tipo (Contrato, Terceiro, Reunião…) sai do nome do arquivo, enquanto o detector não lê o conteúdo. **Buscar no Drive, Gmail e Meet aparece como "em breve"**: os conectores ainda não existem.
-- **Slack:** "Canais lidos" aceita `#nome` ou ID (`C…`). Canal novo é conferido no Slack ao salvar (se não existir ou o token não enxergar, a tela mostra o erro). Depois de salvar, **esses passam a ser os únicos canais que o Radar lê**, no lugar de `SLACK_CHANNEL_IDS`. O selo "Slack conectado" testa o token de verdade (`auth.test`).
-- **Pessoas envolvidas:** nome e papel. O papel decide quem aparece em cada alerta da Fila.
-- **Salvar alterações** grava canais e pessoas no banco e volta para a Fila.
-- Antes da primeira gravação, a tela mostra o que está no `.env` (`SLACK_CHANNEL_IDS`, `RADAR_GESTOR`, `RADAR_COMERCIAL`, `RADAR_ADM_CONTRATOS`). Nome do projeto, cliente e valor da hora continuam no `.env`.
-- Na demo (`--demo`), os canais `#alfa-projeto` e `#alfa-contratos` têm IDs fictícios. Salvar sem mexer neles não consulta o Slack.
+- **Contrato e arquivos:** o botão + envia PDFs do computador (até 20 MB) para `data/uploads/`, fora do Git; a lixeira apaga na hora. O tipo (Contrato, Terceiro, Reunião…) sai do nome do arquivo. **Buscar no Drive, Gmail e Meet aparece como "em breve".**
+- **Slack:** "Canais lidos" aceita `#nome` ou ID (`C…`). Canal novo é conferido no Slack ao salvar (se não existir ou o token não enxergar, a tela mostra o erro). Canais com ID passam a ser os únicos que as fontes do Slack leem, no lugar de `SLACK_CHANNEL_IDS`. O selo "Slack conectado" testa o token (`auth.test`).
+- **Pessoas envolvidas:** nome e papel. O papel decide quem aparece em cada alerta da Fila (o roteamento por tipo continua em `radar/roteamento.py`).
+- Antes da primeira gravação, a tela mostra `data/projeto_alfa.json` (`PROJETO_PATH`): nome, cliente, canais e pessoas de cada papel.
 
 Os tipos do frontend vêm do OpenAPI do backend. Depois de mudar um modelo, com a API rodando:
 
@@ -177,21 +176,18 @@ Rotas específicas do Slack:
 | GET | `/slack/mcp/tools` | Ferramentas do servidor MCP do Slack e quais estão liberadas |
 | POST | `/slack/mcp/tools/{nome}` | Executa uma ferramenta MCP **de leitura**; o corpo traz os argumentos em JSON |
 
-Rotas dos achados:
+Rotas das telas:
 
 | Método | Endpoint | O que faz |
 |---|---|---|
-| GET | `/achados` | Achados em ordem de gravidade (crítico primeiro). Filtros: `status`, `categoria`, `projeto` |
-| GET | `/achados/{id}` | Um achado |
-| GET | `/projeto` | Nome, cliente, canais, pessoas e valor da hora |
+| GET | `/alertas` | Alertas do pipeline para a Fila (crítico primeiro), com a evidência e a decisão |
+| GET | `/alertas/resumo` | Registros lidos por origem e hora do último alerta |
+| POST | `/alertas/{id}/decisao` | `{"acao": "aprovar" \| "descartar" \| "nao_e_desvio", "quem": "..."}`. 409 se já foi decidido |
+| DELETE | `/alertas/{id}/decisao?quem=` | Desfaz a decisão: o alerta volta para pendente |
+| GET | `/projeto` | Nome, cliente, canais e pessoas por papel |
 | PUT | `/projeto/config` | Salva canais (`#nome` ou ID) e pessoas. 422 se um canal novo não existir no Slack |
 | GET | `/projeto/slack` | O token do Slack funciona? |
 | GET / POST / DELETE | `/projeto/arquivos` | Lista, envia (`?nome=`, corpo = bytes do PDF) e remove arquivos |
-| GET | `/analises/ultima` | Última análise: resumo do dia e registros lidos. 404 se nunca rodou |
-| DELETE | `/achados/{id}/decisao?por=` | Desfaz a decisão: volta para pendente (fica no histórico) |
-| POST | `/achados/{id}/decisao` | `{"decisao": "aprovado" \| "descartado" \| "nao_e_desvio", "decidido_por": "...", "comentario": "..."}`. Cada achado é decidido uma vez só: a segunda decisão volta com 409 |
-
-Um **desvio** sem o trecho do contrato (`combinado`) é recusado na validação: se só existe um dos lados, não é desvio. Toda decisão também entra na tabela `decisoes`, que alimenta os evals (cada "não é desvio" é um falso positivo registrado).
 
 Exemplos:
 
@@ -274,7 +270,7 @@ O projeto segue **Ports & Adapters** (arquitetura hexagonal) de forma enxuta:
 - **Adaptadores (`radar/fontes/<canal>`)**: cada canal implementa `Fonte` (`status()` e `fetch(consulta)`), lê a própria configuração do `.env` e traduz os erros do SDK para os erros do núcleo.
 - **Registro (`radar/fontes/registry.py`)**: o único lugar que liga uma `Origem` ao seu adaptador.
 - **MCP (`radar/mcp`)**: cliente e política de só leitura compartilhados pelos servidores MCP do Slack e do Google.
-- **API (`radar/api`)**: as rotas usam o registro e tratam os erros num único ponto, que traduz cada erro para o status HTTP: não configurada → 503, acesso negado/escrita/fora do escopo → 403, não encontrado → 404, achado já decidido → 409, valor inválido (ex.: canal inexistente) → 422, falha externa → 502.
+- **API (`radar/api`)**: as rotas usam o registro e tratam os erros num único ponto, que traduz cada erro para o status HTTP: não configurada → 503, acesso negado/escrita/fora do escopo → 403, não encontrado → 404, alerta já decidido → 409, valor inválido (ex.: canal inexistente) → 422, falha externa → 502.
 
 ```
 radar/
@@ -282,15 +278,12 @@ radar/
 │   ├── models.py        # Origem, Registro, Consulta
 │   ├── ports.py         # porta Fonte (status, fetch)
 │   └── errors.py        # FonteNaoConfigurada, AcessoNegado, EscritaBloqueada, ForaDoEscopo, NaoEncontrado, FalhaNaFonte
-├── achados/
-│   ├── models.py        # Achado, Citacao, Decisao (schema da saída do detector)
-│   ├── store.py         # SQLite: achados + histórico de decisões
-│   ├── config.py        # RADAR_DB_PATH, RADAR_PROJETO, pessoas por papel, valor da hora
-│   └── demo.py          # achados e configuração sintéticos para a demo
+├── painel.py            # o que a Fila mostra, a partir dos alertas de radar/db.py
+├── demo.py              # demo sem o modelo: os 4 desvios do gabarito
 ├── projeto/
 │   ├── models.py        # Projeto, ProjetoConfig, Pessoa, CanalSlack, Arquivo
 │   ├── store.py         # configuração e índice dos PDFs (SQLite) + arquivos em disco
-│   └── service.py       # .env como valor inicial; só consulta o Slack para canal novo
+│   └── service.py       # data/projeto_alfa.json como valor inicial; só consulta o Slack para canal novo
 ├── mcp/
 │   ├── policy.py        # política de só leitura para ferramentas MCP
 │   └── client.py        # cliente MCP remoto (Streamable HTTP + Bearer)
@@ -305,7 +298,7 @@ radar/
 └── api/
     ├── app.py           # FastAPI e tradução de erros para HTTP
     ├── deps.py          # injeção de dependências
-    └── routes/          # fontes.py (genéricas), slack.py (específicas), achados.py
+    └── routes/          # fontes.py, slack.py, gmail.py, alertas.py, projeto.py
 web/                     # frontend React (Vite + TanStack Query)
 tests/
 ```

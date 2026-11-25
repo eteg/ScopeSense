@@ -1,6 +1,7 @@
 """Chamada estruturada ao modelo: o modelo só devolve JSON validado por Pydantic."""
 
 import hashlib
+import os
 import time
 from collections.abc import Callable
 from typing import Any, TypeVar
@@ -45,7 +46,11 @@ def _get_client() -> Any:
     if _client is None:
         import anthropic  # preguiçoso: os testes e o resto do código não exigem o SDK
 
-        _client = anthropic.Anthropic()  # lê ANTHROPIC_API_KEY do ambiente
+        # Lê ANTHROPIC_API_KEY do ambiente. Chave de organização (sem workspace) exige o
+        # cabeçalho anthropic-workspace-id: vem de ANTHROPIC_WORKSPACE_ID, se houver.
+        workspace = os.environ.get("ANTHROPIC_WORKSPACE_ID", "").strip()
+        cabecalhos = {"anthropic-workspace-id": workspace} if workspace else None
+        _client = anthropic.Anthropic(default_headers=cabecalhos)
     return _client
 
 

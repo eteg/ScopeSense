@@ -1,42 +1,56 @@
-"""Regras da configuração do projeto, sem FastAPI."""
+"""Regras da configuração do projeto, sem FastAPI.
 
+O ponto de partida é o `data/projeto_alfa.json` da demo (nome, cliente, canais e
+pessoas por papel). Depois que a tela de Configurações salva, vale o banco.
+"""
+
+import json
 from collections.abc import Callable
+from pathlib import Path
 
-from radar.achados.config import AchadosSettings
-from radar.achados.models import Papel
+from radar.core.models import Papel
 from radar.projeto.models import CanalSlack, ConfigPedido, Pessoa, Projeto, ProjetoConfig
 
 Resolver = Callable[[list[str]], list[dict[str, str]]]
 
 
-def config_inicial(settings: AchadosSettings, canais_env: list[str]) -> ProjetoConfig:
-    """Antes da primeira gravação, a configuração vem do .env."""
-    pessoas = [
-        Pessoa(nome=nome, papel=papel)
-        for papel, nome in (
-            (Papel.gestor, settings.gestor),
-            (Papel.comercial, settings.comercial),
-            (Papel.adm_contratos, settings.adm_contratos),
-        )
-        if nome
-    ]
-    return ProjetoConfig(canais_slack=[CanalSlack(id=c) for c in canais_env], pessoas=pessoas)
+def ler_projeto_json(caminho: str | Path) -> dict:
+    try:
+        return json.loads(Path(caminho).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
 
 
-def montar_projeto(settings: AchadosSettings, config: ProjetoConfig) -> Projeto:
-    primeiro_canal = next((c.nome for c in config.canais_slack if c.nome), None)
+def config_inicial(projeto_json: dict, canais_env: list[str]) -> ProjetoConfig:
+    """Antes da primeira gravação: pessoas e canais do JSON do projeto (+ SLACK_CHANNEL_IDS)."""
+    pessoas = []
+    for papel, dados in (projeto_json.get("papeis") or {}).items():
+        if papel in Papel.__members__ and dados.get("nome"):
+            pessoas.append(Pessoa(nome=dados["nome"], papel=Papel(papel)))
+    canais = [CanalSlack(nome=nome) for nome in (projeto_json.get("canais") or {})]
+    canais += [CanalSlack(id=c) for c in canais_env if not c.startswith("C0000")]
+    return ProjetoConfig(canais_slack=canais, pessoas=pessoas)
+
+
+def montar_projeto(projeto_json: dict, config: ProjetoConfig) -> Projeto:
+    info = projeto_json.get("projeto") or {}
     pessoas: dict[Papel, str | None] = {papel: None for papel in Papel}
     for p in config.pessoas:
         pessoas[p.papel] = pessoas[p.papel] or p.nome
     return Projeto(
-        nome=settings.projeto,
-        cliente=settings.cliente,
-        canal_slack=settings.canal_slack or (f"#{primeiro_canal}" if primeiro_canal else None),
-        valor_hora=settings.valor_hora,
+        nome=info.get("nome") or "Projeto",
+        cliente=info.get("cliente"),
         canais_slack=config.canais_slack,
         envolvidos=config.pessoas,
         pessoas=pessoas,
     )
+
+
+def _chaves(canal: CanalSlack) -> list[str]:
+    chaves = [canal.id] if canal.id else []
+    if canal.nome:
+        chaves.append(f"#{canal.nome.lower()}")
+    return chaves
 
 
 def aplicar_pedido(
@@ -47,11 +61,7 @@ def aplicar_pedido(
     `resolver` é chamado só quando precisa: assim salvar pessoas funciona mesmo
     sem o Slack configurado.
     """
-    conhecidos: dict[str, CanalSlack] = {}
-    for c in atual.canais_slack:
-        conhecidos[c.id] = c
-        if c.nome:
-            conhecidos[f"#{c.nome.lower()}"] = c
+    conhecidos = {chave: c for c in atual.canais_slack for chave in _chaves(c)}
 
     canais: list[CanalSlack] = []
     novos: list[str] = []
@@ -61,11 +71,15 @@ def aplicar_pedido(
         chave = ref.lower() if ref.startswith("#") else ref
         if chave in conhecidos:
             canais.append(conhecidos[chave])
+        elif not ref.startswith("#") and f"#{ref.lower()}" in conhecidos:
+            canais.append(conhecidos[f"#{ref.lower()}"])
         else:
             novos.append(ref)
     if novos:
         canais += [CanalSlack(**c) for c in resolver()(novos)]
 
-    unicos = list({c.id: c for c in canais}.values())
+    unicos: dict[str, CanalSlack] = {}
+    for c in canais:
+        unicos.setdefault(c.id or f"#{c.nome}", c)
     pessoas = [p for p in pedido.pessoas if p.nome.strip()]
-    return ProjetoConfig(canais_slack=unicos, pessoas=pessoas)
+    return ProjetoConfig(canais_slack=list(unicos.values()), pessoas=pessoas)

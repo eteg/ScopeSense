@@ -201,7 +201,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/achados": {
+    "/gmail/query": {
         parameters: {
             query?: never;
             header?: never;
@@ -209,10 +209,10 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Listar Achados
-         * @description Achados ordenados como no relatório: crítico primeiro; no empate, o mais antigo.
+         * Gmail Query
+         * @description Busca do Gmail que o Radar aplica: cliente em qualquer assunto, ou equipe com termo.
          */
-        get: operations["listar_achados_achados_get"];
+        get: operations["gmail_query_gmail_query_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -221,15 +221,18 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/achados/{achado_id}": {
+    "/gmail/threads/{thread_id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Obter Achado */
-        get: operations["obter_achado_achados__achado_id__get"];
+        /**
+         * Gmail Thread
+         * @description Uma conversa do projeto. Conversas fora do projeto voltam com 403.
+         */
+        get: operations["gmail_thread_gmail_threads__thread_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -238,7 +241,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/achados/{achado_id}/decisao": {
+    "/gmail/mcp/tools": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gmail Mcp Tools
+         * @description Ferramentas do servidor MCP do Gmail e quais estão liberadas (só leitura).
+         */
+        get: operations["gmail_mcp_tools_gmail_mcp_tools_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/gmail/mcp/tools/{tool_name}": {
         parameters: {
             query?: never;
             header?: never;
@@ -248,21 +271,17 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Decidir Achado
-         * @description Aprovar, descartar ou marcar como "não é desvio". 409 se já foi decidido.
+         * Gmail Mcp Call
+         * @description Executa uma ferramenta MCP de LEITURA; buscas precisam do filtro do projeto.
          */
-        post: operations["decidir_achado_achados__achado_id__decisao_post"];
-        /**
-         * Desfazer Decisao
-         * @description Desfaz a decisão (botão "Desfazer"): o achado volta para pendente.
-         */
-        delete: operations["desfazer_decisao_achados__achado_id__decisao_delete"];
+        post: operations["gmail_mcp_call_gmail_mcp_tools__tool_name__post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/analises/ultima": {
+    "/alertas": {
         parameters: {
             query?: never;
             header?: never;
@@ -270,13 +289,57 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Ultima Analise
-         * @description Última execução do Radar (resumo do dia e o que foi lido). 404 se nunca rodou.
+         * Listar Alertas
+         * @description Crítico primeiro; no empate, o mais antigo.
          */
-        get: operations["ultima_analise_analises_ultima_get"];
+        get: operations["listar_alertas_alertas_get"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alertas/resumo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumo
+         * @description Quantos registros o Radar leu, por origem, e quando saiu o último alerta.
+         */
+        get: operations["resumo_alertas_resumo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/alertas/{alerta_id}/decisao": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decidir
+         * @description Aprovar, descartar ou "não é desvio". 409 se já foi decidido (pela tela ou pelo Slack).
+         */
+        post: operations["decidir_alertas__alerta_id__decisao_post"];
+        /**
+         * Desfazer
+         * @description Botão "Desfazer": o alerta volta para pendente.
+         */
+        delete: operations["desfazer_alertas__alerta_id__decisao_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -291,7 +354,7 @@ export interface paths {
         };
         /**
          * Projeto
-         * @description Nome, cliente, canais, pessoas por papel e valor da hora.
+         * @description Nome, cliente, canais e pessoas por papel.
          */
         get: operations["projeto_projeto_get"];
         put?: never;
@@ -380,79 +443,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/relatorios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gerar Relatorio
+         * @description Lê o período, chama o modelo e guarda o rascunho (leva de 30 s a 1 min).
+         */
+        post: operations["gerar_relatorio_relatorios_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/relatorios/{relatorio_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obter */
+        get: operations["obter_relatorios__relatorio_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/relatorios/{relatorio_id}/publicar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publicar
+         * @description Posta no canal do projeto (principal + respostas na thread). Uma vez só.
+         */
+        post: operations["publicar_relatorios__relatorio_id__publicar_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** Achado */
-        Achado: {
-            categoria: components["schemas"]["Categoria"];
-            /**
-             * Tipo
-             * @description Ex.: Escopo, Prazo, Bloqueio
-             */
-            tipo: string;
-            gravidade: components["schemas"]["Gravidade"];
+        /**
+         * Acao
+         * @description O que fazer com a classificação. O alerta é postado no grupo do projeto (não há DM).
+         * @enum {string}
+         */
+        Acao: "postar" | "resumo" | "descartar";
+        /** AlertaTela */
+        AlertaTela: {
+            /** Id */
+            id: string;
+            tipo: components["schemas"]["TipoDesvio"];
             /** Titulo */
             titulo: string;
-            /** @description Obrigatório para desvio: o trecho do contrato */
-            combinado?: components["schemas"]["Citacao"] | null;
-            /** Execucao */
-            execucao: components["schemas"]["Citacao"][];
-            /** Por Que Importa */
-            por_que_importa: string;
-            /** O Que Fazer */
-            o_que_fazer: string;
-            /** Papeis */
-            papeis: components["schemas"]["Papel"][];
-            /** Recorrente Desde */
-            recorrente_desde?: string | null;
-            /**
-             * Horas Estimadas
-             * @description Horas de trabalho fora do contrato que o achado evita
-             */
-            horas_estimadas?: number | null;
-            /** Id */
-            id: number;
-            /** Projeto */
-            projeto: string;
-            /**
-             * Criado Em
-             * Format: date-time
-             */
-            criado_em: string;
-            /** @default pendente */
-            status: components["schemas"]["Status"];
-            /** Decidido Por */
-            decidido_por?: string | null;
-            /** Decidido Em */
-            decidido_em?: string | null;
-            /** Comentario */
-            comentario?: string | null;
-        };
-        /**
-         * Analise
-         * @description Uma execução do Radar: o que foi lido e o resumo do dia.
-         */
-        Analise: {
-            /** Projeto */
-            projeto: string;
-            /**
-             * Executada Em
-             * Format: date-time
-             */
-            executada_em: string;
-            /** Duracao S */
-            duracao_s: number;
-            /** Resumo */
-            resumo: string;
-            /**
-             * Registros Lidos
-             * @description Ex.: {"mensagens": 23, "e-mails": 4, "PDFs": 1}
-             */
-            registros_lidos?: {
-                [key: string]: number;
-            };
+            gravidade: components["schemas"]["Gravidade"];
+            /** Confianca */
+            confianca: number;
+            acao: components["schemas"]["Acao"];
+            /** Clausula */
+            clausula: string;
+            /** Trecho Contrato */
+            trecho_contrato: string;
+            /** Trecho Evidencia */
+            trecho_evidencia: string;
+            /** Justificativa */
+            justificativa: string;
+            responsavel: components["schemas"]["Papel"] | null;
+            evidencia: components["schemas"]["Evidencia"] | null;
+            /** Status */
+            status: string;
+            decisao: components["schemas"]["Decisao"] | null;
+            /** Criado Em */
+            criado_em: string | null;
+            /** Trace Url */
+            trace_url: string | null;
         };
         /** Arquivo */
         Arquivo: {
@@ -480,64 +565,80 @@ export interface components {
         };
         /** CanalSlack */
         CanalSlack: {
-            /** Id */
-            id: string;
+            /**
+             * Id
+             * @description ID no Slack (C...); só ele limita a leitura
+             */
+            id?: string | null;
             /** Nome */
             nome?: string | null;
-        };
-        /**
-         * Categoria
-         * @enum {string}
-         */
-        Categoria: "desvio" | "problema";
-        /**
-         * Citacao
-         * @description Trecho literal de uma fonte, com o suficiente para conferir.
-         */
-        Citacao: {
-            origem: components["schemas"]["Origem"];
-            /** Trecho */
-            trecho: string;
-            /**
-             * Referencia
-             * @description Documento e cláusula, canal, assunto do e-mail...
-             */
-            referencia?: string | null;
-            /** Autor */
-            autor?: string | null;
-            /** Data */
-            data?: string | null;
-            /** Link */
-            link?: string | null;
         };
         /** ConfigPedido */
         ConfigPedido: {
             /**
              * Canais Slack
-             * @description Nomes ("#alfa-projeto") ou IDs ("C0123...")
+             * @description Nomes ("#projeto-alfa") ou IDs ("C0123...")
              */
             canais_slack?: string[];
             /** Pessoas */
             pessoas?: components["schemas"]["Pessoa"][];
         };
-        /**
-         * Decisao
-         * @enum {string}
-         */
-        Decisao: "aprovado" | "descartado" | "nao_e_desvio";
+        /** Decisao */
+        Decisao: {
+            /** Alerta Id */
+            alerta_id: string;
+            /**
+             * Acao
+             * @enum {string}
+             */
+            acao: "aprovar" | "descartar" | "nao_e_desvio";
+            /** Quem */
+            quem: string;
+            /**
+             * Quando
+             * Format: date-time
+             */
+            quando: string;
+        };
         /** DecisaoPedido */
         DecisaoPedido: {
-            decisao: components["schemas"]["Decisao"];
-            /** Decidido Por */
-            decidido_por: string;
-            /** Comentario */
-            comentario?: string | null;
+            /**
+             * Acao
+             * @enum {string}
+             */
+            acao: "aprovar" | "descartar" | "nao_e_desvio";
+            /** Quem */
+            quem: string;
+        };
+        /** Evidencia */
+        Evidencia: {
+            origem: components["schemas"]["Origem"];
+            /** Autor */
+            autor: string;
+            /**
+             * Data
+             * Format: date-time
+             */
+            data: string;
+            /** Link */
+            link?: string | null;
+            /** Canal */
+            canal?: string | null;
+        };
+        /** GerarPedido */
+        GerarPedido: {
+            /**
+             * Dias
+             * @description Período: os últimos N dias
+             * @default 7
+             */
+            dias: number;
         };
         /**
          * Gravidade
          * @enum {string}
          */
-        Gravidade: "critico" | "atencao" | "observacao";
+        Gravidade: "critico" | "medio" | "baixo";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -550,10 +651,9 @@ export interface components {
         Origem: "slack" | "email" | "agenda" | "reuniao" | "documento";
         /**
          * Papel
-         * @description Quem avisar. O papel vem de regra em código, nunca do modelo.
          * @enum {string}
          */
-        Papel: "gestor" | "comercial" | "adm_contratos";
+        Papel: "gestor" | "comercial" | "administrativo_contratos";
         /** Pessoa */
         Pessoa: {
             /**
@@ -562,6 +662,15 @@ export interface components {
              */
             nome: string;
             papel: components["schemas"]["Papel"];
+        };
+        /** PessoaMarcada */
+        PessoaMarcada: {
+            /** Nome */
+            nome: string;
+            /** Papel */
+            papel: string;
+            /** Slack Id */
+            slack_id: string | null;
         };
         /**
          * Projeto
@@ -572,13 +681,6 @@ export interface components {
             nome: string;
             /** Cliente */
             cliente: string | null;
-            /**
-             * Canal Slack
-             * @description Canal que recebe o relatório aprovado
-             */
-            canal_slack: string | null;
-            /** Valor Hora */
-            valor_hora: number;
             /** Canais Slack */
             canais_slack: components["schemas"]["CanalSlack"][];
             /** Envolvidos */
@@ -590,6 +692,11 @@ export interface components {
             pessoas: {
                 [key: string]: string | null;
             };
+        };
+        /** PublicarPedido */
+        PublicarPedido: {
+            /** Quem */
+            quem: string;
         };
         /**
          * Registro
@@ -615,6 +722,46 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        /** Relatorio */
+        Relatorio: {
+            /** Id */
+            id: number;
+            /** Criado Em */
+            criado_em: string;
+            /** Desde */
+            desde: string;
+            /** Ate */
+            ate: string;
+            /** Mensagens */
+            mensagens: string[];
+            /** Canal Id */
+            canal_id: string | null;
+            /** Canal Nome */
+            canal_nome: string | null;
+            /** Fontes */
+            fontes: {
+                [key: string]: unknown;
+            };
+            /** Pessoas */
+            pessoas: components["schemas"]["PessoaMarcada"][];
+            /** Avisos */
+            avisos: string[];
+            /** Publicado Em */
+            publicado_em: string | null;
+            /** Publicado Por */
+            publicado_por: string | null;
+            /** Slack Link */
+            slack_link: string | null;
+        };
+        /** Resumo */
+        Resumo: {
+            /** Registros Lidos */
+            registros_lidos: {
+                [key: string]: number;
+            };
+            /** Ultimo Alerta Em */
+            ultimo_alerta_em: string | null;
+        };
         /** SlackConexao */
         SlackConexao: {
             /** Conectado */
@@ -625,10 +772,10 @@ export interface components {
             motivo?: string | null;
         };
         /**
-         * Status
+         * TipoDesvio
          * @enum {string}
          */
-        Status: "pendente" | "aprovado" | "descartado" | "nao_e_desvio";
+        TipoDesvio: "escopo_extra" | "prazo_sla" | "terceiro_sem_documento" | "promessa_fora_do_contrato" | "nenhum";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -955,13 +1102,9 @@ export interface operations {
             };
         };
     };
-    listar_achados_achados_get: {
+    gmail_query_gmail_query_get: {
         parameters: {
-            query?: {
-                status?: components["schemas"]["Status"] | null;
-                categoria?: components["schemas"]["Categoria"] | null;
-                projeto?: string | null;
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;
@@ -974,26 +1117,19 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Achado"][];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
         };
     };
-    obter_achado_achados__achado_id__get: {
+    gmail_thread_gmail_threads__thread_id__get: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                achado_id: number;
+                thread_id: string;
             };
             cookie?: never;
         };
@@ -1005,7 +1141,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Achado"];
+                    "application/json": components["schemas"]["Registro"][];
                 };
             };
             /** @description Validation Error */
@@ -1019,12 +1155,113 @@ export interface operations {
             };
         };
     };
-    decidir_achado_achados__achado_id__decisao_post: {
+    gmail_mcp_tools_gmail_mcp_tools_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    }[];
+                };
+            };
+        };
+    };
+    gmail_mcp_call_gmail_mcp_tools__tool_name__post: {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                achado_id: number;
+                tool_name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_alertas_alertas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertaTela"][];
+                };
+            };
+        };
+    };
+    resumo_alertas_resumo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resumo"];
+                };
+            };
+        };
+    };
+    decidir_alertas__alerta_id__decisao_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alerta_id: string;
             };
             cookie?: never;
         };
@@ -1040,7 +1277,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Achado"];
+                    "application/json": components["schemas"]["AlertaTela"];
                 };
             };
             /** @description Validation Error */
@@ -1054,14 +1291,14 @@ export interface operations {
             };
         };
     };
-    desfazer_decisao_achados__achado_id__decisao_delete: {
+    desfazer_alertas__alerta_id__decisao_delete: {
         parameters: {
             query: {
-                por: string;
+                quem: string;
             };
             header?: never;
             path: {
-                achado_id: number;
+                alerta_id: string;
             };
             cookie?: never;
         };
@@ -1073,7 +1310,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Achado"];
+                    "application/json": components["schemas"]["AlertaTela"];
                 };
             };
             /** @description Validation Error */
@@ -1083,26 +1320,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    ultima_analise_analises_ultima_get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Analise"];
                 };
             };
         };
@@ -1248,6 +1465,105 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gerar_relatorio_relatorios_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GerarPedido"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Relatorio"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obter_relatorios__relatorio_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                relatorio_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Relatorio"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publicar_relatorios__relatorio_id__publicar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                relatorio_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicarPedido"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Relatorio"];
+                };
             };
             /** @description Validation Error */
             422: {

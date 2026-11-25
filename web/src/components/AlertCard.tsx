@@ -1,27 +1,28 @@
-import type { Achado, Citacao, Decisao } from "../api/client";
-import slackLogo from "../assets/slack.png";
-import { GRAVIDADE, iniciais, ORIGEM, pessoaDoAchado, quando, STATUS_DECIDIDO } from "../labels";
+import { type AcaoDecisao, aberto, type Alerta, type Papel } from "../api/client";
+import { GRAVIDADE, iniciais, ORIGEM, pessoaDoAlerta, porcento, quando, STATUS } from "../labels";
 
 type Props = {
-  achado: Achado;
-  pessoas: Record<string, string | null | undefined>;
+  alerta: Alerta;
+  pessoas: Partial<Record<Papel, string | null>>;
   modoSelecao: boolean;
   selecionado: boolean;
   ocupado: boolean;
   onSelecionar: () => void;
-  onDecidir: (decisao: Decisao) => void;
+  onDecidir: (acao: AcaoDecisao) => void;
 };
 
-function fonte(citacoes: Citacao[]): string {
-  const c = citacoes[citacoes.length - 1];
-  return [c.referencia ?? ORIGEM[c.origem], quando(c.data)].filter(Boolean).join(", ");
+function fonte(a: Alerta): string {
+  const e = a.evidencia;
+  if (!e) return "registro " + a.id;
+  const onde = e.canal ? `${ORIGEM[e.origem]} #${e.canal.replace(/^#/, "")}` : ORIGEM[e.origem];
+  return [onde, quando(e.data)].filter(Boolean).join(", ");
 }
 
 export function AlertCard(p: Props) {
-  const { achado } = p;
-  const pendente = achado.status === "pendente";
-  const critico = achado.gravidade === "critico";
-  const pessoa = pessoaDoAchado(achado, p.pessoas);
+  const { alerta: a } = p;
+  const pendente = aberto(a);
+  const critico = a.gravidade === "critico";
+  const pessoa = pessoaDoAlerta(a, p.pessoas);
   const classes = [
     "alerta",
     p.selecionado && "selecionado",
@@ -39,38 +40,39 @@ export function AlertCard(p: Props) {
             type="checkbox"
             checked={p.selecionado}
             onChange={p.onSelecionar}
-            aria-label={`Incluir no envio: ${achado.titulo}`}
+            aria-label={`Incluir na aprovação: ${a.titulo}`}
           />
         )}
-        <span className={`chip chip-${achado.gravidade}`}>{GRAVIDADE[achado.gravidade]}</span>
-        <b className="alerta-titulo">{achado.titulo}</b>
+        <span className={`chip chip-${a.gravidade}`}>{GRAVIDADE[a.gravidade]}</span>
+        <b className="alerta-titulo">{a.titulo}</b>
+        {a.acao === "resumo" && <span className="chip chip-contorno">No resumo</span>}
+        <span className="confianca" title="Confiança do modelo">
+          {porcento(a.confianca)}
+        </span>
       </div>
 
       <div className="lados">
-        {achado.combinado && (
-          <div className="caixa">
-            <div className="caixa-rotulo">CONTRATO · {achado.combinado.referencia}</div>
-            <div className="caixa-texto">“{achado.combinado.trecho}”</div>
-          </div>
-        )}
         <div className="caixa">
-          <div className="caixa-rotulo">EVIDÊNCIA · {fonte(achado.execucao)}</div>
-          {achado.execucao.map((c, i) => (
-            <div key={i} className="caixa-texto">
-              “{c.autor && achado.execucao.length > 1 ? `${c.autor}: ` : ""}
-              {c.trecho}”
-              {c.link && (
-                <>
-                  {" "}
-                  <a href={c.link} target="_blank" rel="noreferrer" className="abrir">
-                    abrir
-                  </a>
-                </>
-              )}
-            </div>
-          ))}
+          <div className="caixa-rotulo">CONTRATO · CL. {a.clausula}</div>
+          <div className="caixa-texto">“{a.trecho_contrato}”</div>
+        </div>
+        <div className="caixa">
+          <div className="caixa-rotulo">EVIDÊNCIA · {fonte(a)}</div>
+          <div className="caixa-texto">
+            “{a.evidencia?.autor ? `${a.evidencia.autor}: ` : ""}
+            {a.trecho_evidencia}”
+            {a.evidencia?.link && (
+              <>
+                {" "}
+                <a href={a.evidencia.link} target="_blank" rel="noreferrer" className="abrir">
+                  abrir
+                </a>
+              </>
+            )}
+          </div>
         </div>
       </div>
+      <p className="justificativa">{a.justificativa}</p>
 
       <div className="alerta-rodape">
         <span className="pessoa">
@@ -87,10 +89,17 @@ export function AlertCard(p: Props) {
               type="button"
               className={critico ? "btn btn-primario" : "btn btn-texto"}
               disabled={p.ocupado}
-              onClick={() => p.onDecidir("aprovado")}
+              onClick={() => p.onDecidir("aprovar")}
             >
-              <img src={slackLogo} alt="" className={critico ? "slack slack-branco" : "slack"} />
-              Notificar por Slack
+              Aprovar
+            </button>
+            <button
+              type="button"
+              className="btn btn-texto btn-neutro"
+              disabled={p.ocupado}
+              onClick={() => p.onDecidir("descartar")}
+            >
+              Descartar
             </button>
             <button
               type="button"
@@ -102,10 +111,10 @@ export function AlertCard(p: Props) {
             </button>
           </>
         )}
-        {!pendente && achado.status !== "pendente" && (
+        {!pendente && (
           <span className="status-decidido">
-            {STATUS_DECIDIDO[achado.status]}
-            {achado.decidido_por && ` · ${achado.decidido_por}`}
+            {STATUS[a.status] ?? a.status}
+            {a.decisao && ` · ${a.decisao.quem}, ${quando(a.decisao.quando)}`}
           </span>
         )}
       </div>
