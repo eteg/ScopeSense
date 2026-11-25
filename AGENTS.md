@@ -102,8 +102,9 @@ As assinaturas entre módulos estão na tabela da seção 5 de `docs/PLANO-MVP.m
 
 ```bash
 py -3.11 -m venv .venv && .venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+pip install -e ".[dev]"
 cp .env.example .env              # preencha as chaves
+uvicorn radar.api.app:app --reload  # API (FastAPI)
 python scripts/ping_modelo.py     # deve responder "ok"
 streamlit run app.py              # fila de alertas e simulação
 python slack_bot.py               # escuta o canal e trata os botões
