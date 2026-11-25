@@ -57,10 +57,12 @@ def main() -> int:
 
     from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-    from radar import contrato, db, grafo
+    from radar import cache_llm, contrato, db, grafo, observabilidade
     from radar.slack_app import criar_app
 
     db.init_db()
+    observabilidade.ativar_langfuse()  # no-op (desligado) sem as chaves do Langfuse no .env
+    cache_llm.ativar_cache_sqlite()  # grava sempre; só lê com MODO_DEMO=1
     try:
         total = contrato.indexar_clausulas(contrato.carregar_contrato())
         log.info("Contrato indexado: %s trechos.", total)
@@ -70,7 +72,10 @@ def main() -> int:
     app = criar_app()
     grafo.configurar(criar_notificador(app.client, os.environ["SLACK_ALERT_CHANNEL_ID"]))
     log.info("Radar escutando o Slack (Socket Mode). Ctrl+C para sair.")
-    SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
+    try:
+        SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
+    finally:
+        observabilidade.flush()  # garante o envio dos últimos traços ao Langfuse
     return 0
 
 

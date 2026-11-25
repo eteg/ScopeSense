@@ -16,7 +16,7 @@ load_dotenv()  # antes de importar `radar.config`: ele lê DATABASE_PATH e MODO_
 
 import streamlit as st  # noqa: E402
 
-from radar import config, db, grafo  # noqa: E402
+from radar import cache_llm, config, db, grafo, observabilidade  # noqa: E402
 from radar.core.models import Acao, Consulta, Registro  # noqa: E402
 from radar.fontes.arquivos import FileSource, contexto_de  # noqa: E402
 from radar.ui import app_logica as logica  # noqa: E402
@@ -45,6 +45,8 @@ def iniciar(caminho_banco: str) -> dict[str, Registro]:
     pausa de aprovação viva no grafo em memória, então só estes podem receber decisão aqui.
     """
     db.init_db(caminho_banco)
+    observabilidade.ativar_langfuse()  # no-op (desligado) sem as chaves do Langfuse no .env
+    cache_llm.ativar_cache_sqlite(caminho_banco)  # grava sempre; só lê com MODO_DEMO=1
     locais: dict[str, Registro] = {}
 
     def notificador(alerta, registro: Registro) -> None:
