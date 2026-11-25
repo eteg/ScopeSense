@@ -10,8 +10,10 @@ from radar.nos.buscar import buscar_clausulas
 from radar.nos.classificar import classificar_registro, deve_seguir
 from radar.nos.conferir_documentos import conferir
 from radar.nos.rotear import rotear_alerta
+from radar.observabilidade import observar
 
 
+@observar("analisar")
 def analisar(registro: Registro, contexto: Sequence[Registro] = ()) -> Alerta | None:
     """Devolve o `Alerta` com `responsavel` preenchido, ou `None` (nenhum desvio ou descartado)."""
     clausulas = buscar_clausulas(registro, contexto)

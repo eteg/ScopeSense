@@ -20,6 +20,7 @@ from radar.nos.classificar import classificar, deve_seguir
 from radar.nos.conferir_documentos import conferir_documentos
 from radar.nos.registrar import registrar
 from radar.nos.rotear import Notificador, definir_notificador, rotear
+from radar.observabilidade import observar
 
 
 class Estado(TypedDict, total=False):
@@ -68,6 +69,7 @@ def configurar(notificador: Notificador) -> None:
     definir_notificador(notificador)
 
 
+@observar("processar")
 def processar(registro: Registro, contexto: Sequence[Registro] = ()) -> dict:
     """Roda o grafo para um registro. Um `thread_id` por registro evita misturar estados.
 
