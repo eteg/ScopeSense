@@ -3,15 +3,19 @@ import { useEffect, useRef, useState } from "react";
 import { NomeDialog } from "./components/NomeDialog";
 import { TopBar } from "./components/TopBar";
 import { Configuracoes } from "./pages/Configuracoes";
+import { Conexoes } from "./pages/Conexoes";
 import { Fila } from "./pages/Fila";
 
 /** Pede o nome de quem decide e chama `depois` com ele. */
 export type PedirNome = (depois?: (nome: string) => void) => void;
 
-type Rota = "fila" | "configuracoes";
+type Rota = "fila" | "configuracoes" | "conexoes";
 
 function rotaAtual(): Rota {
-  return window.location.hash.startsWith("#/configuracoes") ? "configuracoes" : "fila";
+  const h = window.location.hash;
+  if (h.startsWith("#/configuracoes")) return "configuracoes";
+  if (h.startsWith("#/conexoes")) return "conexoes";
+  return "fila";
 }
 
 function useRota(): Rota {
@@ -59,8 +63,14 @@ export function App() {
 
   return (
     <div className="app">
-      <TopBar nome={nome} onAvatar={() => pedirNome()} />
-      {rota === "configuracoes" ? <Configuracoes /> : <Fila nome={nome} pedirNome={pedirNome} />}
+      <TopBar nome={nome} onAvatar={() => pedirNome()} conexoes={rota === "conexoes"} />
+      {rota === "configuracoes" ? (
+        <Configuracoes />
+      ) : rota === "conexoes" ? (
+        <Conexoes />
+      ) : (
+        <Fila nome={nome} pedirNome={pedirNome} />
+      )}
       <NomeDialog
         aberto={dialogo}
         nomeAtual={nome}

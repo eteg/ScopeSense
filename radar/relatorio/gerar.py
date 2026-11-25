@@ -18,6 +18,7 @@ from radar.core.errors import FalhaNaFonte, FonteNaoConfigurada, RadarError
 from radar.core.models import Consulta, Origem, Papel, Registro
 from radar.llm import _get_client
 from radar.relatorio.estrutura import RelatorioEstruturado
+from radar.relatorio.slack_saida import NOME_BOT
 
 FUSO = ZoneInfo("America/Sao_Paulo")
 PROMPT = Path(__file__).with_name("prompt_sistema.md")
@@ -64,6 +65,28 @@ class Coleta:
 # --- coleta ------------------------------------------------------------------------------
 
 
+# Mensagens que o próprio Radar postou (relatórios e notificações). Saíram pelo bot
+# ("Radar de Desvios") ou, antes do bot, pelo token de usuário: aí só o texto as denuncia.
+_POST_DO_RADAR = re.compile(
+    r"(:satellite_antenna:|📡) \*?Radar de Desvios"  # cabeçalho do relatório (todos os formatos)
+    r"|\bpontos? do Radar de Desvios \("  # mensagem por responsável
+    r"|(Gerado automaticamente|Enviado) pelo Radar de Desvios"  # rodapés
+    r"|^@\S.*? (:\w+: )?\*?Divergência (crítica|média|baixa)"  # botão Notificar
+)
+
+
+def e_do_radar(r: Registro) -> bool:
+    """True se a mensagem é um relatório ou notificação do próprio Radar.
+
+    O Radar não lê o que ele mesmo escreveu: relatórios antigos no contexto fazem o
+    modelo repetir a lista anterior e esconder as mensagens novas. As respostas
+    humanas nas threads desses posts continuam valendo.
+    """
+    if r.origem != Origem.slack:
+        return False
+    return r.autor == NOME_BOT or bool(_POST_DO_RADAR.search(r.texto.strip()))
+
+
 def coletar(registry, desde: datetime, ate: datetime, arquivos) -> Coleta:
     """Lê Slack (canais do projeto, com threads) e Gmail (só e-mails do projeto)."""
     coleta = Coleta(arquivos=arquivos)
@@ -73,7 +96,7 @@ def coletar(registry, desde: datetime, ate: datetime, arquivos) -> Coleta:
         (Origem.email, coleta.emails, "Gmail"),
     ):
         try:
-            destino.extend(registry.get(origem).fetch(consulta))
+            destino.extend(r for r in registry.get(origem).fetch(consulta) if not e_do_radar(r))
         except RadarError as exc:  # uma fonte fora do ar não impede o relatório
             coleta.avisos.append(f"{nome} não foi lido: {exc}")
     return coleta
@@ -109,8 +132,10 @@ def _quando(data: datetime) -> str:
     return data.astimezone(FUSO).strftime("%d/%m/%Y %H:%M")
 
 
-def _registro(r: Registro) -> str:
+def _registro(r: Registro, novas_desde: datetime | None = None) -> str:
     meta = [r.origem.value, _quando(r.data), r.autor]
+    if novas_desde and r.data > novas_desde:
+        meta.insert(0, "NOVA")
     if r.metadados.get("thread_ts") and r.metadados.get("thread_ts") != r.metadados.get("ts"):
         meta.append(f"resposta na thread {r.metadados['thread_ts']}")
     elif r.metadados.get("respostas"):
@@ -144,6 +169,8 @@ def montar_prompt(
     desde: datetime,
     ate: datetime,
     coleta: Coleta,
+    anteriores: list[str] | None = None,
+    novas_desde: datetime | None = None,
 ) -> tuple[str, str]:
     """Devolve (system, user)."""
     valores = {
@@ -179,6 +206,9 @@ def montar_prompt(
         total += len(trecho)
         contratos.append(f"### {nome} (tipo: {tipo})\n{trecho or '(sem texto extraível)'}")
 
+    n_novas = sum(
+        1 for r in coleta.slack + coleta.emails if novas_desde and r.data > novas_desde
+    )
     ids = "\n".join(f"- {ROTULO_PAPEL[p.papel]}: {p.nome}" for p in pessoas)
     user = f"""IMPORTANTE: neste ambiente você NÃO tem ferramentas. A aplicação já coletou tudo do período e entrega abaixo. "Drive" (a pasta do projeto) aqui são os arquivos enviados na tela de Configurações e os PDFs anexados aos e-mails do projeto (o contrato pode estar entre eles; cite o link do e-mail de origem). Use só estes dados; não invente links (use os que vierem nos registros).
 
@@ -193,10 +223,16 @@ Responsáveis cadastrados no setup (para você saber quem é quem; NÃO escreva 
 {chr(10).join(contratos) if contratos else "NENHUM ARQUIVO ENVIADO: não há contrato na pasta do projeto."}
 
 ## Execução: Slack #{canal_nome} ({len(coleta.slack)} mensagens, com threads)
-{chr(10).join(_registro(r) for r in coleta.slack) or "(nenhuma mensagem no período)"}
+{chr(10).join(_registro(r, novas_desde) for r in coleta.slack) or "(nenhuma mensagem no período)"}
 
 ## Execução: e-mails do projeto ({len(coleta.emails)})
-{chr(10).join(_registro(r) for r in coleta.emails) or "(nenhum e-mail no período)"}
+{chr(10).join(_registro(r, novas_desde) for r in coleta.emails) or "(nenhum e-mail no período)"}
+
+## Pontos do último relatório publicado (só para preencher `recorrente_desde`)
+{chr(10).join(f"- {a}" for a in anteriores or []) or "(nenhum relatório anterior)"}
+Não copie esta lista: analise os dados acima do zero. Um ponto antigo só volta se ainda aparecer nos dados; um ponto novo nos dados entra mesmo que não esteja aqui.
+
+{f"ATENÇÃO: {n_novas} registro(s) marcados com NOVA chegaram depois do último relatório. Avalie cada um antes de tudo: pedido novo do cliente, promessa, prazo, documento ou problema que aparecer neles precisa virar ponto (ou entrar num ponto existente, citado no título)." if n_novas else ""}
 """
     return system, user
 

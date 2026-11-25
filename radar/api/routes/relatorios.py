@@ -4,6 +4,7 @@ Gerar não publica nada: guarda o texto para a pessoa revisar. Só "Publicar" po
 no Slack (radar/relatorio/slack_saida.py, token de usuário).
 """
 
+import json
 from collections.abc import Callable
 from datetime import datetime, timedelta
 from typing import cast
@@ -218,7 +219,8 @@ def executar(
         store.salvar_config(projeto, cfg)
     etapa("slack", "andamento", f"Lendo as conversas de #{canal_nome}")
     try:
-        coleta.slack = slack.fetch(consulta)
+        # O Radar não relê os próprios relatórios e notificações postados no canal.
+        coleta.slack = [r for r in slack.fetch(consulta) if not gerar.e_do_radar(r)]
         n = coleta.contagem()
         etapa("slack", "ok", f"{_plural(n['mensagens_slack'], 'mensagem', 'mensagens')} em "
               f"{_plural(n['threads_slack'], 'conversa', 'conversas')} de #{canal_nome}")  # fmt: skip
@@ -294,6 +296,8 @@ def executar(
         desde=desde,
         ate=ate,
         coleta=coleta,
+        anteriores=_pontos_anteriores(),
+        novas_desde=_fim_do_ultimo_publicado(),
     )
     etapa("analise", "andamento", "Cruzando o contrato com as conversas e escrevendo o relatório")
     estruturado, gasto = gerar.chamar_modelo(system, user)
@@ -429,3 +433,29 @@ def publicar(relatorio_id: int, pedido: PublicarPedido) -> Relatorio:
     ts, link = slack_saida.publicar(dados["canal"], mensagens)
     db.marcar_relatorio_publicado(relatorio_id, pedido.quem, ts, link, caminho=caminho)
     return _montar(db.obter_relatorio(relatorio_id, caminho=caminho))
+
+
+def _pontos_anteriores() -> list[str]:
+    """Títulos do último relatório publicado, com a data em que cada ponto apareceu.
+
+    O Radar não lê os próprios posts do Slack; isto mantém o `recorrente_desde`.
+    """
+    publicados = [r for r in db.listar_relatorios(caminho=_caminho()) if r.get("publicado_em")]
+    if not publicados:
+        return []
+    ultimo = db.obter_relatorio(publicados[0]["id"], caminho=_caminho()) or {}
+    try:
+        pontos = json.loads(ultimo.get("texto") or "{}").get("pontos", [])
+    except (ValueError, AttributeError):
+        return []  # relatório antigo, em texto livre
+    dia = datetime.fromisoformat(str(ultimo.get("criado_em"))).strftime("%d/%m")
+    return [f"{p.get('titulo')} (desde {p.get('recorrente_desde') or dia})" for p in pontos]
+
+
+def _fim_do_ultimo_publicado() -> datetime | None:
+    """Fim do período do último relatório publicado: o que veio depois é novidade."""
+    for r in db.listar_relatorios(caminho=_caminho()):
+        if r.get("publicado_em"):
+            fim = datetime.fromisoformat(str(r["ate"]))
+            return fim if fim.tzinfo else fim.replace(tzinfo=FUSO)
+    return None

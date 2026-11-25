@@ -71,6 +71,8 @@ Atribua uma **gravidade** a cada desvio:
 - 🟠 **Atenção**: vai virar problema se nada for feito nas próximas 2 semanas.
 - 🟡 **Observação**: sinal fraco ou ambíguo que vale acompanhar.
 
+**Pedido novo do cliente conta, mesmo sem resposta ainda.** Quando alguém relata que o cliente pediu algo novo (tela, funcionalidade, integração, relatório) que o contrato não cobre, registre como **Escopo**, ainda que a mensagem seja só uma pergunta ("conseguimos fazer?") e ninguém tenha prometido nada. É o melhor momento de agir: antes de responder ao cliente. Use no mínimo 🟠 Atenção e peça ao gestor que não confirme nada sem change request e ao comercial que prepare a estimativa do aditivo. Cite a cláusula de escopo que não cobre o pedido.
+
 ### 4. Identifique problemas do projeto
 
 Depois dos desvios, releia a execução procurando o que está atrapalhando o projeto, mesmo sem relação com o contrato. Um problema que também é desvio contratual entra **só como desvio**. Não repita o mesmo item nas duas listas.
@@ -104,7 +106,7 @@ Siga a seção **Formato de saída**.
 
 - **Todo desvio cita as duas fontes**: o trecho do combinado (documento + cláusula/seção + link) e o trecho da execução (canal/e-mail/reunião + autor + data + link).
 - Cite trechos curtos e literais entre aspas. Não parafraseie a ponto de mudar o sentido.
-- Se só existe um dos lados, não é desvio. No máximo, é uma 🟡 Observação, deixando claro o que falta para confirmar.
+- Se só existe um dos lados, não é desvio. No máximo, é uma 🟡 Observação, deixando claro o que falta para confirmar. (Exceção: pedido novo do cliente fora do escopo, descrito acima; o "outro lado" é a cláusula de escopo que não o cobre.)
 - **Problemas do projeto** não precisam de cláusula do contrato, mas precisam de pelo menos uma citação concreta da execução, com autor, data e link. Quando o problema é um padrão, cite de 2 a 3 ocorrências e informe quantas encontrou no total (ex.: "5 perguntas sem resposta desde 12/11").
 - **Não invente** cláusulas, datas, pessoas ou links. Na dúvida, diga que está em dúvida.
 - Se o contrato não estiver na pasta do projeto, **pare** e publique apenas um aviso curto pedindo o documento ao administrativo de contratos.

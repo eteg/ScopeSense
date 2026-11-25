@@ -1804,3 +1804,248 @@ a.btn-icone:hover {
   flex-direction: column;
   gap: 4px;
 }
+
+/* ---- Conexões (tela de demonstração, MCP) ---- */
+.cx-secao-topo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 32px 0 14px;
+}
+.cx-secao-topo h2 {
+  font-size: 20px;
+  font-weight: 500;
+  margin: 0;
+}
+.cx-secao-topo-filtros {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.cx-contagem {
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 12px;
+  background: var(--primario-claro);
+  color: var(--primario-claro-texto);
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.cx-grade {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+.cx-grade-disponiveis {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.cx-card {
+  background: #fff;
+  border: 1px solid #e2e2e9;
+  border-radius: 16px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cx-card-topo {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.cx-logo {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: 12px;
+  border: 1px solid #e2e2e9;
+  display: grid;
+  place-items: center;
+  background: #fff;
+}
+.cx-logo-img {
+  width: 26px;
+  height: 26px;
+}
+.cx-monograma {
+  width: 100%;
+  height: 100%;
+  border-radius: 11px;
+  color: #fff;
+  font-weight: 600;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+}
+.cx-nome {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.cx-nome b {
+  font-weight: 500;
+  font-size: 16px;
+}
+.cx-nome span {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+.cx-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 13px;
+  background: #c9eed3;
+  color: #0f5130;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.cx-ponto {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1e8e4a;
+  box-shadow: 0 0 0 3px rgba(30, 142, 74, 0.2);
+}
+.cx-dados {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+  margin: 0;
+}
+.cx-dados dt {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.cx-dados dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.cx-chip {
+  align-self: flex-start;
+}
+.cx-ferramentas {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #f3f3fa;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cx-ferramentas li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1e8e4a;
+}
+.cx-ferramentas code {
+  color: var(--texto, #1a1b20);
+  font-size: 13px;
+}
+.cx-acoes {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: auto;
+}
+.cx-card-disponivel .cx-acoes {
+  padding-top: 4px;
+}
+.cx-categoria {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+.cx-conectar {
+  height: 36px;
+  padding: 0 16px;
+}
+.cx-girando {
+  width: 14px;
+  height: 14px;
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+}
+.cx-busca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--contorno);
+  border-radius: 20px;
+  background: #fff;
+  color: var(--texto-suave);
+  min-width: 260px;
+}
+.cx-busca input {
+  border: 0;
+  outline: 0;
+  font: inherit;
+  font-size: 14px;
+  flex: 1;
+  background: transparent;
+}
+.cx-categorias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.cx-vazio {
+  grid-column: 1 / -1;
+}
+.cx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 16px 0 8px;
+}
+.cx-form select {
+  border: 0;
+  outline: 0;
+  font: inherit;
+  background: transparent;
+}
+.nav-link {
+  margin-left: auto;
+  margin-right: 16px;
+  color: var(--texto-suave);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 12px;
+  border-radius: 16px;
+}
+.nav-link:hover,
+.nav-link.ativo {
+  background: var(--primario-claro);
+  color: var(--primario-claro-texto);
+}
+.nav-link + .avatar-botao {
+  margin-left: 0;
+}
+.cx-nota {
+  margin: 32px 0 8px;
+  font-size: 12px;
+  color: var(--texto-suave);
+  text-align: center;
+}
+.cx-form .campo-contorno {
+  flex: none;
+}
+.cx-form {
+  gap: 20px;
+  margin-top: 20px;
+}
