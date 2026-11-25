@@ -29,7 +29,7 @@ Tudo o que importa (problema, princípios, arquitetura, regras e design) está e
   - Langfuse: o import certo é `from langfuse import observe, get_client`, não `langfuse.decorators`.
   - LangGraph: compile com `InMemorySaver`; sem checkpointer a aprovação humana falha.
 - **Slack:** `ack()` na primeira linha do handler. Rode o grafo em `threading.Thread`.
-- **Windows/PowerShell:** use `py -3.11`, `.venv\Scripts\Activate.ps1`, e `tzdata` instalado para `zoneinfo`.
+- **Windows/PowerShell:** use `py -3.12`, `.venv\Scripts\Activate.ps1`, e `tzdata` instalado para `zoneinfo`.
 - **Arquivos de texto em UTF-8.** Contrato, mensagens e README têm acentos.
 
 ## O que o Claude Code não deve fazer sem pedir

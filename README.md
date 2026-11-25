@@ -66,7 +66,7 @@ Todas as fontes passam pela mesma interface: um `fetch()` que devolve `Registro`
 
 ## Stack
 
-Python 3.11 de ponta a ponta, com bibliotecas open source e só dois serviços externos: a API do modelo e o Langfuse.
+Python 3.12 de ponta a ponta, com bibliotecas open source e só dois serviços externos: a API do modelo e o Langfuse.
 
 | Camada | Ferramenta |
 |--------|------------|
@@ -136,7 +136,7 @@ radar-desvios/
 
 > Os comandos abaixo seguem o plano do hackathon. Ajuste conforme o código for sendo entregue.
 
-**Pré-requisitos:** Python 3.11, conta no Slack (workspace de teste), chave da API da Anthropic e projeto no Langfuse Cloud.
+**Pré-requisitos:** Python 3.12, conta no Slack (workspace de teste), chave da API da Anthropic e projeto no Langfuse Cloud.
 
 ```bash
 # 1. Ambiente (conda, como na base do backend; ou venv)

@@ -101,7 +101,7 @@ As assinaturas entre módulos estão na tabela da seção 5 de `docs/PLANO-MVP.m
 ## 9. Comandos (planejados; ajuste conforme o código for entregue)
 
 ```bash
-py -3.11 -m venv .venv && .venv\Scripts\Activate.ps1
+py -3.12 -m venv .venv && .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 cp .env.example .env              # preencha as chaves
 uvicorn radar.api.app:app --reload  # API (FastAPI)
